@@ -150,6 +150,22 @@ export type ClotheColor =
   | 'Red'
   | 'White'
 
+/**
+ * Available graphic types (shirt graphics)
+ */
+export type GraphicType =
+  | 'Bat'
+  | 'Cumbia'
+  | 'Deer'
+  | 'Diamond'
+  | 'Hola'
+  | 'Pizza'
+  | 'Resist'
+  | 'Selena'
+  | 'Bear'
+  | 'SkullOutline'
+  | 'Skull'
+
 // ============================================================================
 // EYES
 // ============================================================================
@@ -246,31 +262,36 @@ export type AvatarStyle = 'Circle' | 'Transparent'
  * Complete avatar configuration object
  *
  * This interface defines all customizable attributes for an avatar.
+ * All fields are optional to allow flexible matching and partial updates.
  * It is stored as JSONB in the database for profiles.own_avatar and posts.target_avatar.
  */
 export interface AvatarConfig {
+  /** Avatar rendering style */
+  avatarStyle?: AvatarStyle
   /** Hair/hat style */
-  topType: TopType
+  topType?: TopType
   /** Hair color (applicable when topType is a hair style) */
-  hairColor: HairColor
+  hairColor?: HairColor
   /** Glasses or other face accessories */
-  accessoriesType: AccessoriesType
+  accessoriesType?: AccessoriesType
   /** Facial hair style (beard, moustache) */
-  facialHairType: FacialHairType
+  facialHairType?: FacialHairType
   /** Facial hair color */
-  facialHairColor: FacialHairColor
+  facialHairColor?: FacialHairColor
   /** Clothing type */
-  clotheType: ClotheType
+  clotheType?: ClotheType
   /** Clothing color */
-  clotheColor: ClotheColor
+  clotheColor?: ClotheColor
+  /** Graphic type (shirt graphics) */
+  graphicType?: GraphicType
   /** Eye type/expression */
-  eyeType: EyeType
+  eyeType?: EyeType
   /** Eyebrow type/expression */
-  eyebrowType: EyebrowType
+  eyebrowType?: EyebrowType
   /** Mouth type/expression */
-  mouthType: MouthType
+  mouthType?: MouthType
   /** Skin tone */
-  skinColor: SkinColor
+  skinColor?: SkinColor
 }
 
 /**
@@ -283,7 +304,8 @@ export type PartialAvatarConfig = Partial<AvatarConfig>
  * Default avatar configuration
  * Used when creating a new avatar or resetting to defaults
  */
-export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
+export const DEFAULT_AVATAR_CONFIG: Required<AvatarConfig> = {
+  avatarStyle: 'Circle',
   topType: 'ShortHairShortFlat',
   hairColor: 'Brown',
   accessoriesType: 'Blank',
@@ -291,6 +313,7 @@ export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
   facialHairColor: 'Brown',
   clotheType: 'ShirtCrewNeck',
   clotheColor: 'Blue01',
+  graphicType: 'Bat',
   eyeType: 'Default',
   eyebrowType: 'Default',
   mouthType: 'Default',
@@ -306,6 +329,8 @@ export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
  * Each array contains all valid values for a specific attribute
  */
 export const AVATAR_OPTIONS = {
+  avatarStyle: ['Circle', 'Transparent'] as const satisfies readonly AvatarStyle[],
+
   topType: [
     'NoHair',
     'Eyepatch',
@@ -418,6 +443,20 @@ export const AVATAR_OPTIONS = {
     'White',
   ] as const satisfies readonly ClotheColor[],
 
+  graphicType: [
+    'Bat',
+    'Cumbia',
+    'Deer',
+    'Diamond',
+    'Hola',
+    'Pizza',
+    'Resist',
+    'Selena',
+    'Bear',
+    'SkullOutline',
+    'Skull',
+  ] as const satisfies readonly GraphicType[],
+
   eyeType: [
     'Close',
     'Cry',
@@ -483,6 +522,7 @@ export type AvatarAttribute = keyof AvatarConfig
  * Human-readable labels for avatar attributes (for UI)
  */
 export const AVATAR_ATTRIBUTE_LABELS: Record<AvatarAttribute, string> = {
+  avatarStyle: 'Style',
   topType: 'Hair/Hat Style',
   hairColor: 'Hair Color',
   accessoriesType: 'Accessories',
@@ -490,6 +530,7 @@ export const AVATAR_ATTRIBUTE_LABELS: Record<AvatarAttribute, string> = {
   facialHairColor: 'Facial Hair Color',
   clotheType: 'Clothing',
   clotheColor: 'Clothing Color',
+  graphicType: 'Graphic',
   eyeType: 'Eyes',
   eyebrowType: 'Eyebrows',
   mouthType: 'Mouth',
@@ -519,4 +560,63 @@ export const SECONDARY_MATCHING_ATTRIBUTES: AvatarAttribute[] = [
   'clotheType',
   'clotheColor',
   'facialHairColor',
+  'graphicType',
+  'avatarStyle',
 ]
+
+// ============================================================================
+// Type Utilities
+// ============================================================================
+
+/**
+ * Type for avatar option keys
+ */
+export type AvatarOptionKey = keyof typeof AVATAR_OPTIONS
+
+/**
+ * Type for avatar option values
+ */
+export type AvatarOptionValue<K extends AvatarOptionKey> = (typeof AVATAR_OPTIONS)[K][number]
+
+/**
+ * Type guard to check if a value is a valid avatar option
+ */
+export function isValidAvatarOption<K extends AvatarOptionKey>(
+  key: K,
+  value: unknown
+): value is AvatarOptionValue<K> {
+  const options = AVATAR_OPTIONS[key] as readonly string[]
+  return typeof value === 'string' && options.includes(value)
+}
+
+/**
+ * Validates an entire avatar configuration
+ * Returns true if all provided options are valid
+ */
+export function isValidAvatarConfig(config: unknown): config is AvatarConfig {
+  if (typeof config !== 'object' || config === null) {
+    return false
+  }
+
+  const avatarConfig = config as Record<string, unknown>
+
+  for (const [key, value] of Object.entries(avatarConfig)) {
+    if (key in AVATAR_OPTIONS) {
+      if (!isValidAvatarOption(key as AvatarOptionKey, value)) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
+/**
+ * Creates a complete avatar config with defaults for missing values
+ */
+export function createAvatarConfig(partial?: Partial<AvatarConfig>): Required<AvatarConfig> {
+  return {
+    ...DEFAULT_AVATAR_CONFIG,
+    ...partial,
+  }
+}

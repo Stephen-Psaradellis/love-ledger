@@ -171,6 +171,20 @@ export interface PostWithDetails extends Post {
   producer?: Pick<Profile, 'id' | 'display_name'>
 }
 
+/**
+ * Post with location information
+ */
+export interface PostWithLocation extends Post {
+  location: Location
+}
+
+/**
+ * Post with producer information
+ */
+export interface PostWithProducer extends Post {
+  producer: Profile
+}
+
 // ============================================================================
 // CONVERSATIONS
 // ============================================================================
@@ -225,6 +239,15 @@ export interface ConversationWithDetails extends Conversation {
   unread_count?: number
 }
 
+/**
+ * Conversation with all participants and related data
+ */
+export interface ConversationWithParticipants extends Conversation {
+  producer: Profile
+  consumer: Profile
+  post: Post
+}
+
 // ============================================================================
 // MESSAGES
 // ============================================================================
@@ -270,6 +293,59 @@ export interface MessageInsert {
  */
 export interface MessageWithSender extends Message {
   sender?: Pick<Profile, 'id' | 'display_name' | 'own_avatar'>
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+/**
+ * Type of notification event
+ */
+export type NotificationType = 'new_response' | 'new_message' | 'response_accepted'
+
+/**
+ * User notification for alerts and updates
+ *
+ * Notifies users of important events like new responses or messages.
+ */
+export interface Notification {
+  /** Unique identifier for the notification */
+  id: UUID
+  /** User who receives this notification */
+  user_id: UUID
+  /** Type of notification event */
+  type: NotificationType
+  /** Reference to related entity (post or conversation) */
+  reference_id: UUID | null
+  /** Whether the notification has been read */
+  is_read: boolean
+  /** Timestamp when the notification was created */
+  created_at: Timestamp
+}
+
+/**
+ * Fields that can be updated on a notification
+ */
+export interface NotificationUpdate {
+  is_read?: boolean
+}
+
+/**
+ * Fields required when inserting a new notification
+ */
+export interface NotificationInsert {
+  user_id: UUID
+  type: NotificationType
+  reference_id?: UUID | null
+}
+
+/**
+ * Notification with related data
+ */
+export interface NotificationWithReference extends Notification {
+  conversation?: Conversation
+  post?: Post
 }
 
 // ============================================================================
@@ -396,6 +472,11 @@ export interface Database {
         Row: Message
         Insert: MessageInsert
         Update: MessageUpdate
+      }
+      notifications: {
+        Row: Notification
+        Insert: NotificationInsert
+        Update: NotificationUpdate
       }
       blocks: {
         Row: Block
