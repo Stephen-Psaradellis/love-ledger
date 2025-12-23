@@ -83,6 +83,12 @@ COMMENT ON COLUMN locations.place_types IS 'Array of place types from Google (e.
 COMMENT ON COLUMN locations.post_count IS 'Count of posts at this location';
 COMMENT ON COLUMN locations.created_at IS 'Timestamp when the location was first added';
 
+-- PostGIS geospatial index for proximity queries
+-- Uses SRID 4326 (WGS 84) which is standard for GPS coordinates
+CREATE INDEX IF NOT EXISTS locations_geo_idx ON locations USING GIST (
+    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+);
+
 -- Create indexes for location queries
 CREATE INDEX IF NOT EXISTS idx_locations_place_id ON locations(place_id) WHERE place_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_locations_coords ON locations(latitude, longitude);
@@ -91,12 +97,6 @@ CREATE INDEX IF NOT EXISTS idx_locations_created_at ON locations(created_at DESC
 CREATE INDEX IF NOT EXISTS locations_google_place_id_idx ON locations(google_place_id);
 CREATE INDEX IF NOT EXISTS locations_post_count_idx ON locations(post_count DESC);
 CREATE INDEX IF NOT EXISTS locations_name_idx ON locations(name);
-
--- PostGIS geospatial index for proximity queries
--- Uses SRID 4326 (WGS 84) which is standard for GPS coordinates
-CREATE INDEX IF NOT EXISTS locations_geo_idx ON locations USING GIST (
-    ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
-);
 
 -- ============================================================================
 -- POSTS TABLE
@@ -177,6 +177,9 @@ CREATE TABLE IF NOT EXISTS conversations (
     CONSTRAINT conversations_valid_status CHECK (status IN ('pending', 'active', 'declined', 'blocked'))
 );
 
+COMMENT ON TABLE conversations IS 'Conversations between post producers and consumers who respond';
+COMMENT ON COLUMN conversations.status IS 'Conversation status: pending, active, declined, or blocked';
+
 -- Create indexes for conversation queries
 CREATE INDEX IF NOT EXISTS conversations_producer_idx ON conversations(producer_id);
 CREATE INDEX IF NOT EXISTS conversations_consumer_idx ON conversations(consumer_id);
@@ -197,6 +200,8 @@ CREATE TABLE IF NOT EXISTS messages (
     is_read BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+
+COMMENT ON TABLE messages IS 'Individual messages within conversations';
 
 -- Create indexes for message queries
 CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages(conversation_id, created_at);
@@ -219,6 +224,10 @@ CREATE TABLE IF NOT EXISTS notifications (
     -- Validate notification types
     CONSTRAINT notifications_valid_type CHECK (type IN ('new_response', 'new_message', 'response_accepted'))
 );
+
+COMMENT ON TABLE notifications IS 'In-app notifications for users';
+COMMENT ON COLUMN notifications.type IS 'Notification type: new_response, new_message, or response_accepted';
+COMMENT ON COLUMN notifications.reference_id IS 'References conversation_id or post_id depending on type';
 
 -- Create indexes for notification queries
 CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications(user_id, is_read, created_at DESC);
@@ -327,10 +336,3 @@ CREATE TRIGGER posts_decrement_location_count
     AFTER DELETE ON posts
     FOR EACH ROW
     EXECUTE FUNCTION decrement_location_post_count();
-
--- ============================================================================
--- VALIDATION CONSTRAINTS
--- ============================================================================
-
--- Ensure note has content
-ALTER TABLE posts ADD CONSTRAINT posts_message_not_empty CHECK (LENGTH(TRIM(message)) > 0);

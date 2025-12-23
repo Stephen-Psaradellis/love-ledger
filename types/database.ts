@@ -479,6 +479,63 @@ export interface UserReportInsert {
 }
 
 // ============================================================================
+// GEOSPATIAL TYPES
+// ============================================================================
+
+/**
+ * Coordinates for geospatial queries
+ */
+export interface Coordinates {
+  latitude: number
+  longitude: number
+}
+
+/**
+ * Parameters for the get_nearby_locations database function.
+ * Uses PostGIS ST_DWithin for efficient spatial queries with GIST index.
+ */
+export interface NearbyLocationParams {
+  /** User's latitude coordinate (WGS 84) */
+  user_lat: number
+  /** User's longitude coordinate (WGS 84) */
+  user_lon: number
+  /** Search radius in meters (default: 5000 = 5km) */
+  radius_meters?: number
+  /** Maximum number of results to return (default: 50) */
+  max_results?: number
+}
+
+/**
+ * Parameters for the get_locations_with_active_posts database function.
+ * Returns nearby locations filtered by those with active posts.
+ */
+export interface LocationsWithActivePostsParams extends NearbyLocationParams {
+  /** Minimum number of active posts required (default: 1) */
+  min_post_count?: number
+}
+
+/**
+ * Location with distance information from geospatial query.
+ * Returned by the get_nearby_locations database function.
+ */
+export interface LocationWithDistance extends Location {
+  /** Distance from query point in meters */
+  distance_meters: number
+}
+
+/**
+ * Location with active post count and distance information.
+ * Returned by the get_locations_with_active_posts database function.
+ * Note: Uses active_post_count (BIGINT) instead of post_count from base Location.
+ */
+export interface LocationWithActivePosts extends Omit<Location, 'post_count'> {
+  /** Count of active, non-expired posts at this location */
+  active_post_count: number
+  /** Distance from query point in meters */
+  distance_meters: number
+}
+
+// ============================================================================
 // JOINED TYPES (for queries with relations)
 // ============================================================================
 
@@ -602,49 +659,6 @@ export interface Database {
         Row: UserReport
         Insert: UserReportInsert
         Update: never
-      }
-    }
-    Views: Record<string, never>
-    Functions: {
-      deactivate_expired_posts: {
-        Args: Record<string, never>
-        Returns: number
-      }
-      get_unread_message_count: {
-        Args: { user_id: UUID }
-        Returns: number
-      }
-      mark_conversation_as_read: {
-        Args: { conv_id: UUID; user_id: UUID }
-        Returns: number
-      }
-      is_user_blocked: {
-        Args: { blocker: UUID; blocked: UUID }
-        Returns: boolean
-      }
-      has_block_relationship: {
-        Args: { user_a: UUID; user_b: UUID }
-        Returns: boolean
-      }
-      get_blocked_user_ids: {
-        Args: { user_id: UUID }
-        Returns: UUID[]
-      }
-      get_blocker_user_ids: {
-        Args: { user_id: UUID }
-        Returns: UUID[]
-      }
-      get_hidden_user_ids: {
-        Args: { user_id: UUID }
-        Returns: UUID[]
-      }
-      block_user: {
-        Args: { blocker: UUID; blocked: UUID }
-        Returns: void
-      }
-      unblock_user: {
-        Args: { blocker: UUID; blocked: UUID }
-        Returns: void
       }
     }
   }

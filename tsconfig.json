@@ -30,9 +30,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".expo/types/**/*.ts",
-    ".next/types/**/*.ts",
-    "expo-env.d.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }
