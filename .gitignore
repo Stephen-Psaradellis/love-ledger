@@ -25,6 +25,10 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Next.js
+/.next/
+/out/
+
 # Native builds
 *.orig.*
 *.jks
@@ -60,6 +64,9 @@ android/build/
 *.aab
 local.properties
 
+# Production
+/build
+
 # Metro bundler
 .metro-health-check*
 
@@ -85,6 +92,9 @@ coverage/
 
 # Misc
 *.pem
+
+# Vercel
+.vercel
 
 # Logs
 logs/

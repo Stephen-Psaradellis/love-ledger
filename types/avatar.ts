@@ -329,8 +329,6 @@ export const DEFAULT_AVATAR_CONFIG: Required<AvatarConfig> = {
  * Each array contains all valid values for a specific attribute
  */
 export const AVATAR_OPTIONS = {
-  avatarStyle: ['Circle', 'Transparent'] as const satisfies readonly AvatarStyle[],
-
   topType: [
     'NoHair',
     'Eyepatch',
@@ -511,6 +509,8 @@ export const AVATAR_OPTIONS = {
     'DarkBrown',
     'Black',
   ] as const satisfies readonly SkinColor[],
+
+  avatarStyle: ['Circle', 'Transparent'] as const satisfies readonly AvatarStyle[],
 } as const
 
 /**

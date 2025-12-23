@@ -34,10 +34,10 @@ export type Timestamp = string
 export interface Profile {
   /** References auth.users(id) - the primary key */
   id: UUID
-  /** Optional display name for the user */
-  display_name: string | null
+  /** Username for the user */
+  username: string | null
   /** JSONB avatar configuration describing the user themselves (for matching) */
-  own_avatar: AvatarConfig | null
+  avatar_config: AvatarConfig | null
   /** Timestamp when the profile was created */
   created_at: Timestamp
   /** Timestamp when the profile was last updated */
@@ -48,17 +48,20 @@ export interface Profile {
  * Fields that can be updated on a profile
  */
 export interface ProfileUpdate {
-  display_name?: string | null
-  own_avatar?: AvatarConfig | null
+  username?: string | null
+  avatar_config?: AvatarConfig | null
+  updated_at?: Timestamp
 }
 
 /**
- * Fields required when inserting a new profile (id is required, others optional)
+ * Fields required when inserting a new profile
  */
 export interface ProfileInsert {
   id: UUID
-  display_name?: string | null
-  own_avatar?: AvatarConfig | null
+  username?: string | null
+  avatar_config?: AvatarConfig | null
+  created_at?: Timestamp
+  updated_at?: Timestamp
 }
 
 // ============================================================================
@@ -68,12 +71,14 @@ export interface ProfileInsert {
 /**
  * Physical venue where posts can be created
  *
- * Locations are tied to Google Maps place IDs when available
- * for deduplication and venue enrichment.
+ * Locations are tied to Google Maps place IDs for deduplication
+ * and venue enrichment.
  */
 export interface Location {
   /** Unique identifier for the location */
   id: UUID
+  /** Google Maps place ID for venue identification */
+  google_place_id: string
   /** Name of the venue/location */
   name: string
   /** Full address of the location */
@@ -82,8 +87,10 @@ export interface Location {
   latitude: number
   /** GPS longitude coordinate */
   longitude: number
-  /** Google Maps place ID for venue identification */
-  place_id: string | null
+  /** Place types from Google Maps */
+  place_types: string[]
+  /** Count of posts at this location */
+  post_count: number
   /** Timestamp when the location was first added */
   created_at: Timestamp
 }
@@ -92,22 +99,28 @@ export interface Location {
  * Fields that can be updated on a location
  */
 export interface LocationUpdate {
+  google_place_id?: string
   name?: string
   address?: string | null
   latitude?: number
   longitude?: number
-  place_id?: string | null
+  place_types?: string[]
+  post_count?: number
 }
 
 /**
  * Fields required when inserting a new location
  */
 export interface LocationInsert {
+  id?: UUID
+  google_place_id: string
   name: string
   address?: string | null
   latitude: number
   longitude: number
-  place_id?: string | null
+  place_types?: string[]
+  post_count?: number
+  created_at?: Timestamp
 }
 
 // ============================================================================
@@ -127,39 +140,52 @@ export interface Post {
   producer_id: UUID
   /** Location where this post was created */
   location_id: UUID
+  /** Selfie URL for verification */
+  selfie_url: string
   /** JSONB avatar configuration describing the person of interest */
   target_avatar: AvatarConfig
-  /** Anonymous note/message left by the producer */
-  note: string
-  /** Private selfie URL for verification (not publicly visible) */
-  selfie_url: string | null
+  /** Description of the target person */
+  target_description: string | null
+  /** Message left by the producer */
+  message: string
+  /** Timestamp when the post was seen by producer */
+  seen_at: Timestamp | null
+  /** Whether the post is currently active and visible */
+  is_active: boolean
   /** Timestamp when the post was created */
   created_at: Timestamp
   /** Timestamp when the post expires (defaults to 30 days) */
   expires_at: Timestamp
-  /** Whether the post is currently active and visible */
-  is_active: boolean
 }
 
 /**
  * Fields that can be updated on a post
  */
 export interface PostUpdate {
+  selfie_url?: string
   target_avatar?: AvatarConfig
-  note?: string
-  selfie_url?: string | null
+  target_description?: string | null
+  message?: string
+  seen_at?: Timestamp | null
   is_active?: boolean
+  expires_at?: Timestamp
 }
 
 /**
  * Fields required when inserting a new post
  */
 export interface PostInsert {
+  id?: UUID
   producer_id: UUID
   location_id: UUID
+  selfie_url: string
   target_avatar: AvatarConfig
-  note: string
-  selfie_url?: string | null
+  target_description?: string | null
+  message: string
+  seen_at?: Timestamp | null
+  is_active?: boolean
+  created_at?: Timestamp
+  expires_at?: Timestamp
 }
 
 /**
@@ -168,7 +194,7 @@ export interface PostInsert {
  */
 export interface PostWithDetails extends Post {
   location: Location
-  producer?: Pick<Profile, 'id' | 'display_name'>
+  producer: Profile
 }
 
 /**
@@ -190,6 +216,11 @@ export interface PostWithProducer extends Post {
 // ============================================================================
 
 /**
+ * Status of a conversation
+ */
+export type ConversationStatus = 'pending' | 'active' | 'declined' | 'blocked'
+
+/**
  * Anonymous chat session between a post producer and consumer
  *
  * Created when a consumer initiates contact with a post creator.
@@ -204,28 +235,37 @@ export interface Conversation {
   producer_id: UUID
   /** User who initiated the conversation (matched with the post) */
   consumer_id: UUID
+  /** Status of the conversation */
+  status: ConversationStatus
+  /** Whether the producer accepted the conversation */
+  producer_accepted: boolean
   /** Timestamp when the conversation was started */
   created_at: Timestamp
   /** Timestamp of the last activity in the conversation */
   updated_at: Timestamp
-  /** Whether the conversation is currently active */
-  is_active: boolean
 }
 
 /**
  * Fields that can be updated on a conversation
  */
 export interface ConversationUpdate {
-  is_active?: boolean
+  status?: ConversationStatus
+  producer_accepted?: boolean
+  updated_at?: Timestamp
 }
 
 /**
  * Fields required when inserting a new conversation
  */
 export interface ConversationInsert {
+  id?: UUID
   post_id: UUID
   producer_id: UUID
   consumer_id: UUID
+  status?: ConversationStatus
+  producer_accepted?: boolean
+  created_at?: Timestamp
+  updated_at?: Timestamp
 }
 
 /**
@@ -233,8 +273,8 @@ export interface ConversationInsert {
  * Used for displaying in chat list
  */
 export interface ConversationWithDetails extends Conversation {
-  post: Pick<Post, 'id' | 'target_avatar' | 'note'>
-  other_user?: Pick<Profile, 'id' | 'display_name' | 'own_avatar'>
+  post: Pick<Post, 'id' | 'target_avatar' | 'message'>
+  other_user?: Pick<Profile, 'id' | 'username' | 'avatar_config'>
   last_message?: Pick<Message, 'content' | 'created_at' | 'sender_id'>
   unread_count?: number
 }
@@ -266,16 +306,17 @@ export interface Message {
   sender_id: UUID
   /** The message text content */
   content: string
-  /** Timestamp when the message was sent */
-  created_at: Timestamp
   /** Whether the recipient has read this message */
   is_read: boolean
+  /** Timestamp when the message was sent */
+  created_at: Timestamp
 }
 
 /**
  * Fields that can be updated on a message
  */
 export interface MessageUpdate {
+  content?: string
   is_read?: boolean
 }
 
@@ -283,16 +324,19 @@ export interface MessageUpdate {
  * Fields required when inserting a new message
  */
 export interface MessageInsert {
+  id?: UUID
   conversation_id: UUID
   sender_id: UUID
   content: string
+  is_read?: boolean
+  created_at?: Timestamp
 }
 
 /**
  * Message with sender information
  */
 export interface MessageWithSender extends Message {
-  sender?: Pick<Profile, 'id' | 'display_name' | 'own_avatar'>
+  sender: Profile
 }
 
 // ============================================================================
@@ -335,9 +379,12 @@ export interface NotificationUpdate {
  * Fields required when inserting a new notification
  */
 export interface NotificationInsert {
+  id?: UUID
   user_id: UUID
   type: NotificationType
   reference_id?: UUID | null
+  is_read?: boolean
+  created_at?: Timestamp
 }
 
 /**
@@ -399,7 +446,7 @@ export interface Report {
   /** Unique identifier for the report */
   id: UUID
   /** User who submitted the report */
-  reporter_id: UUID
+reporter_id: UUID
   /** Type of entity being reported: post, message, or user */
   reported_type: ReportedType
   /** UUID of the reported entity (post, message, or user) */

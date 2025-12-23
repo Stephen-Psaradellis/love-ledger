@@ -36,16 +36,6 @@ CREATE TABLE IF NOT EXISTS profiles (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Comment on profiles table and columns
-COMMENT ON TABLE profiles IS 'User profiles extending Supabase auth.users';
-COMMENT ON COLUMN profiles.id IS 'References auth.users(id) - the primary key';
-COMMENT ON COLUMN profiles.display_name IS 'Optional display name for the user';
-COMMENT ON COLUMN profiles.username IS 'Optional unique username for the user';
-COMMENT ON COLUMN profiles.own_avatar IS 'JSONB avatar configuration describing the user themselves (for matching)';
-COMMENT ON COLUMN profiles.avatar_config IS 'JSONB configuration for user''s Avataaars avatar';
-COMMENT ON COLUMN profiles.created_at IS 'Timestamp when the profile was created';
-COMMENT ON COLUMN profiles.updated_at IS 'Timestamp when the profile was last updated';
-
 -- Create indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_profiles_updated_at ON profiles(updated_at DESC);
 CREATE INDEX IF NOT EXISTS profiles_username_idx ON profiles(username);
@@ -58,29 +48,16 @@ CREATE INDEX IF NOT EXISTS profiles_username_idx ON profiles(username);
 
 CREATE TABLE IF NOT EXISTS locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    google_place_id TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     address TEXT,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
     place_id TEXT,
-    google_place_id TEXT UNIQUE,
     place_types TEXT[],
     post_count INTEGER DEFAULT 0 NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
-
--- Comment on locations table and columns
-COMMENT ON TABLE locations IS 'Physical venues where users can create missed connection posts';
-COMMENT ON COLUMN locations.id IS 'Unique identifier for the location';
-COMMENT ON COLUMN locations.name IS 'Name of the venue/location';
-COMMENT ON COLUMN locations.address IS 'Full address of the location';
-COMMENT ON COLUMN locations.latitude IS 'GPS latitude coordinate';
-COMMENT ON COLUMN locations.longitude IS 'GPS longitude coordinate';
-COMMENT ON COLUMN locations.place_id IS 'Google Maps place ID for venue identification';
-COMMENT ON COLUMN locations.google_place_id IS 'Unique identifier from Google Places API';
-COMMENT ON COLUMN locations.place_types IS 'Array of place types from Google (e.g., gym, cafe)';
-COMMENT ON COLUMN locations.post_count IS 'Count of posts at this location';
-COMMENT ON COLUMN locations.created_at IS 'Timestamp when the location was first added';
 
 -- Create indexes for location queries
 CREATE INDEX IF NOT EXISTS idx_locations_place_id ON locations(place_id) WHERE place_id IS NOT NULL;
@@ -106,31 +83,16 @@ CREATE TABLE IF NOT EXISTS posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     producer_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
     location_id UUID REFERENCES locations(id) ON DELETE CASCADE NOT NULL,
-    target_avatar JSONB NOT NULL,
-    note TEXT,
-    message TEXT,
-    target_description TEXT,
     selfie_url TEXT NOT NULL,
+    target_avatar JSONB NOT NULL,
+    target_description TEXT,
+    note TEXT,
+    message TEXT NOT NULL,
     seen_at TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT true NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days') NOT NULL,
-    is_active BOOLEAN DEFAULT true NOT NULL
+    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days') NOT NULL
 );
-
--- Comment on posts table and columns
-COMMENT ON TABLE posts IS 'Missed connection posts created by producers at locations';
-COMMENT ON COLUMN posts.id IS 'Unique identifier for the post';
-COMMENT ON COLUMN posts.producer_id IS 'User who created this post';
-COMMENT ON COLUMN posts.location_id IS 'Location where this post was created';
-COMMENT ON COLUMN posts.target_avatar IS 'JSONB Avataaars configuration describing the person of interest';
-COMMENT ON COLUMN posts.note IS 'Anonymous note/message left by the producer';
-COMMENT ON COLUMN posts.message IS 'The note left for the person';
-COMMENT ON COLUMN posts.target_description IS 'Additional text description';
-COMMENT ON COLUMN posts.selfie_url IS 'URL to producer''s selfie in Supabase Storage';
-COMMENT ON COLUMN posts.seen_at IS 'When the producer saw the person of interest';
-COMMENT ON COLUMN posts.created_at IS 'Timestamp when the post was created';
-COMMENT ON COLUMN posts.expires_at IS 'Timestamp when the post expires (defaults to 30 days)';
-COMMENT ON COLUMN posts.is_active IS 'Whether the post is currently active and visible';
 
 -- Create indexes for post queries
 CREATE INDEX IF NOT EXISTS idx_posts_producer_id ON posts(producer_id);
@@ -173,10 +135,6 @@ CREATE TABLE IF NOT EXISTS conversations (
     CONSTRAINT conversations_valid_status CHECK (status IN ('pending', 'active', 'declined', 'blocked'))
 );
 
--- Comment on conversations table
-COMMENT ON TABLE conversations IS 'Conversations between post producers and consumers who respond';
-COMMENT ON COLUMN conversations.status IS 'Conversation status: pending, active, declined, or blocked';
-
 -- Create indexes for conversation queries
 CREATE INDEX IF NOT EXISTS conversations_producer_idx ON conversations(producer_id);
 CREATE INDEX IF NOT EXISTS conversations_consumer_idx ON conversations(consumer_id);
@@ -197,9 +155,6 @@ CREATE TABLE IF NOT EXISTS messages (
     is_read BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
-
--- Comment on messages table
-COMMENT ON TABLE messages IS 'Individual messages within conversations';
 
 -- Create indexes for message queries
 CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages(conversation_id, created_at);
@@ -223,11 +178,6 @@ CREATE TABLE IF NOT EXISTS notifications (
     CONSTRAINT notifications_valid_type CHECK (type IN ('new_response', 'new_message', 'response_accepted'))
 );
 
--- Comment on notifications table
-COMMENT ON TABLE notifications IS 'In-app notifications for users';
-COMMENT ON COLUMN notifications.type IS 'Notification type: new_response, new_message, or response_accepted';
-COMMENT ON COLUMN notifications.reference_id IS 'References conversation_id or post_id depending on type';
-
 -- Create indexes for notification queries
 CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS notifications_unread_idx ON notifications(user_id) WHERE is_read = FALSE;
@@ -246,20 +196,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply updated_at trigger to profiles table
-DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
-CREATE TRIGGER update_profiles_updated_at
-    BEFORE UPDATE ON profiles
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
--- Apply updated_at trigger to conversations table
-DROP TRIGGER IF EXISTS conversations_updated_at ON conversations;
-CREATE TRIGGER conversations_updated_at
-    BEFORE UPDATE ON conversations
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 -- Function to automatically create profile on user signup
 -- This ensures every auth.users entry has a corresponding profile
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -271,13 +207,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Trigger to create profile when new user signs up
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW
-    EXECUTE FUNCTION handle_new_user();
 
 -- Function to deactivate expired posts (can be called by cron job or edge function)
 CREATE OR REPLACE FUNCTION deactivate_expired_posts()
@@ -318,11 +247,33 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
--- TRIGGERS FOR POST COUNT
+-- TRIGGERS
 -- ============================================================================
 
+-- Apply updated_at trigger to profiles table
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+DROP TRIGGER IF EXISTS profiles_updated_at ON profiles;
+CREATE TRIGGER profiles_updated_at
+    BEFORE UPDATE ON profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Apply updated_at trigger to conversations table
+DROP TRIGGER IF EXISTS conversations_updated_at ON conversations;
+CREATE TRIGGER conversations_updated_at
+    BEFORE UPDATE ON conversations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger to create profile when new user signs up
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION handle_new_user();
+
 -- Increment post count when a new post is created
-DROP TRIGGER IF EXISTS posts_increment_location_count ON posts;
+DROP TRIGGER IF EXISTS posts_increment_location_count ONposts;
 CREATE TRIGGER posts_increment_location_count
     AFTER INSERT ON posts
     FOR EACH ROW
@@ -336,34 +287,48 @@ CREATE TRIGGER posts_decrement_location_count
     EXECUTE FUNCTION decrement_location_post_count();
 
 -- ============================================================================
--- VALIDATION CONSTRAINTS
+-- COMMENTS
 -- ============================================================================
 
--- Ensure note or message has content
-ALTER TABLE posts ADD CONSTRAINT posts_note_not_empty
-    CHECK (LENGTH(TRIM(COALESCE(note, message))) > 0);
+COMMENT ON TABLE profiles IS 'User profiles extending Supabase auth.users';
+COMMENT ON TABLE locations IS 'Physical locations where missed connection posts can be created';
+COMMENT ON TABLE posts IS 'Missed connection posts created by users at specific locations';
+COMMENT ON TABLE conversations IS 'Conversations between post producers and consumers who respond';
+COMMENT ON TABLE messages IS 'Individual messages within conversations';
+COMMENT ON TABLE notifications IS 'In-app notifications for users';
 
--- Ensure target_avatar is a valid JSON object
-ALTER TABLE posts ADD CONSTRAINT posts_target_avatar_is_object
-    CHECK (jsonb_typeof(target_avatar) = 'object');
+COMMENT ON COLUMN profiles.id IS 'References auth.users(id) - the primary key';
+COMMENT ON COLUMN profiles.display_name IS 'Optional display name for the user';
+COMMENT ON COLUMN profiles.username IS 'Optional unique username for the user';
+COMMENT ON COLUMN profiles.own_avatar IS 'JSONB avatar configuration describing the user themselves (for matching)';
+COMMENT ON COLUMN profiles.avatar_config IS 'JSONB configuration for user''s Avataaars avatar';
+COMMENT ON COLUMN profiles.created_at IS 'Timestamp when the profile was created';
+COMMENT ON COLUMN profiles.updated_at IS 'Timestamp when the profile was last updated';
 
--- Ensure location name has content
-ALTER TABLE locations ADD CONSTRAINT locations_name_not_empty
-    CHECK (LENGTH(TRIM(name)) > 0);
+COMMENT ON COLUMN locations.id IS 'Unique identifier for the location';
+COMMENT ON COLUMN locations.google_place_id IS 'Unique identifier from Google Places API';
+COMMENT ON COLUMN locations.name IS 'Name of the venue/location';
+COMMENT ON COLUMN locations.address IS 'Full address of the location';
+COMMENT ON COLUMN locations.latitude IS 'GPS latitude coordinate';
+COMMENT ON COLUMN locations.longitude IS 'GPS longitude coordinate';
+COMMENT ON COLUMN locations.place_id IS 'Google Maps place ID for venue identification';
+COMMENT ON COLUMN locations.place_types IS 'Array of place types from Google (e.g., gym, cafe)';
+COMMENT ON COLUMN locations.post_count IS 'Count of posts at this location';
+COMMENT ON COLUMN locations.created_at IS 'Timestamp when the location was first added';
 
--- Ensure latitude is within valid range (-90 to 90)
-ALTER TABLE locations ADD CONSTRAINT locations_latitude_range
-    CHECK (latitude >= -90 AND latitude <= 90);
+COMMENT ON COLUMN posts.id IS 'Unique identifier for the post';
+COMMENT ON COLUMN posts.producer_id IS 'User who created this post';
+COMMENT ON COLUMN posts.location_id IS 'Location where this post was created';
+COMMENT ON COLUMN posts.selfie_url IS 'URL to producer''s selfie in Supabase Storage';
+COMMENT ON COLUMN posts.target_avatar IS 'JSONB Avataaars configuration describing the person of interest';
+COMMENT ON COLUMN posts.target_description IS 'Additional text description';
+COMMENT ON COLUMN posts.note IS 'Anonymous note/message left by the producer';
+COMMENT ON COLUMN posts.message IS 'The note left for the person';
+COMMENT ON COLUMN posts.seen_at IS 'When the producer saw the person of interest';
+COMMENT ON COLUMN posts.is_active IS 'Whether the post is currently active and visible';
+COMMENT ON COLUMN posts.created_at IS 'Timestamp when the post was created';
+COMMENT ON COLUMN posts.expires_at IS 'Timestamp when the post expires (defaults to 30 days)';
 
--- Ensure longitude is within valid range (-180 to 180)
-ALTER TABLE locations ADD CONSTRAINT locations_longitude_range
-    CHECK (longitude >= -180 AND longitude <= 180);
-
--- ============================================================================
--- INITIAL SETUP NOTES
--- ============================================================================
--- After running this migration:
--- 1. Run 004_rls_policies.sql to enable Row Level Security
--- 2. Configure storage buckets via 005_storage_policies.sql
--- 3. Test that profile is auto-created when user signs up
--- ============================================================================
+COMMENT ON COLUMN conversations.status IS 'Conversation status: pending, active, declined, or blocked';
+COMMENT ON COLUMN notifications.type IS 'Notification type: new_response, new_message, or response_accepted';
+COMMENT ON COLUMN notifications.reference_id IS 'References conversation_id or post_id depending on type';
