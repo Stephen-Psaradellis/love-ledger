@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { shouldUseMockSupabase } from '@/lib/dev'
+import { shouldUseMockSupabase, isProductionMode, isMissingSupabaseCredentials } from '@/lib/dev'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -12,6 +12,14 @@ export async function updateSession(request: NextRequest) {
   // and just pass through the request
   if (shouldUseMockSupabase()) {
     return supabaseResponse
+  }
+
+  // In production, validate that credentials are present
+  if (isProductionMode() && isMissingSupabaseCredentials()) {
+    throw new Error(
+      'Missing Supabase credentials in production. ' +
+      'Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
+    )
   }
 
   const supabase = createServerClient(
