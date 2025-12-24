@@ -92,16 +92,24 @@ export function shouldUseMockGoogleMaps(): boolean {
 }
 
 /**
- * Determine if any mock services are being used
- * Useful for displaying a dev mode banner
+ * Determine if any mock services are being used (Next.js)
+ * Useful for displaying a dev mode banner in the web app
  */
 export function isUsingMockServices(): boolean {
   return shouldUseMockSupabase() || shouldUseMockGoogleMaps()
 }
 
 /**
- * Get a summary of which mock services are active
- * Useful for logging and debugging
+ * Determine if any mock services are being used (Expo/React Native)
+ * Useful for displaying a dev mode banner in the mobile app
+ */
+export function isUsingExpoMockServices(): boolean {
+  return shouldUseMockExpoSupabase()
+}
+
+/**
+ * Get a summary of which mock services are active (Next.js)
+ * Useful for logging and debugging in the web app
  */
 export function getMockServicesSummary(): {
   devMode: boolean
@@ -116,7 +124,21 @@ export function getMockServicesSummary(): {
 }
 
 /**
- * Log dev mode status (call once during app initialization)
+ * Get a summary of which mock services are active (Expo/React Native)
+ * Useful for logging and debugging in the mobile app
+ */
+export function getExpoMockServicesSummary(): {
+  devMode: boolean
+  mockExpoSupabase: boolean
+} {
+  return {
+    devMode: isDevMode(),
+    mockExpoSupabase: shouldUseMockExpoSupabase(),
+  }
+}
+
+/**
+ * Log dev mode status for Next.js (call once during app initialization)
  * Only logs in development mode to avoid polluting production logs
  */
 export function logDevModeStatus(): void {
@@ -132,5 +154,20 @@ export function logDevModeStatus(): void {
     if (summary.mockGoogleMaps) {
       console.warn('  - Mock Google Maps (missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)')
     }
+  }
+}
+
+/**
+ * Log dev mode status for Expo/React Native (call once during app initialization)
+ * Only logs in development mode to avoid polluting production logs
+ */
+export function logExpoDevModeStatus(): void {
+  if (!isDevMode()) return
+
+  const summary = getExpoMockServicesSummary()
+
+  if (summary.mockExpoSupabase) {
+    console.warn('[Dev Mode] Running with mock services:')
+    console.warn('  - Mock Supabase client (missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY)')
   }
 }
