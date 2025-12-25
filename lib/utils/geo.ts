@@ -72,8 +72,10 @@ import type {
   LocationVisit,
   LocationWithDistance,
   LocationWithActivePosts,
+  LocationWithVisit,
   NearbyLocationParams,
   LocationsWithActivePostsParams,
+  RecentlyVisitedLocationParams,
 } from '@/types/database'
 
 // ============================================================================
@@ -679,6 +681,84 @@ export async function recordLocationVisit(
 
   // The RPC returns null if user is not within proximity
   return data as LocationVisit | null
+}
+
+/**
+ * Fetches locations that the current user has recently visited within the eligibility window (3 hours).
+ *
+ * This function is used in the post creation flow to determine which locations
+ * the user is eligible to post at. Only locations visited within the last 3 hours
+ * are returned, ensuring users can only create posts at places they've physically been.
+ *
+ * ## Performance
+ *
+ * This function calls the `get_recently_visited_locations` PostgreSQL function which:
+ * - Uses the current authenticated user (auth.uid())
+ * - Filters visits to within the 3-hour eligibility window
+ * - Joins with the `locations` table to return full location data
+ * - Orders by most recent visit first
+ *
+ * ## Authentication
+ *
+ * The database function uses `auth.uid()` internally to identify the current user,
+ * so no user_id parameter is needed. The user must be authenticated.
+ *
+ * ## Use Cases
+ *
+ * 1. **Post Creation Flow**: Get eligible locations for the location picker
+ * 2. **Visit History Display**: Show recent places the user has been
+ *
+ * @param supabase - Supabase client instance (from createClient())
+ * @param params - Query parameters (optional)
+ * @param params.max_results - Maximum results to return (default: no limit)
+ * @returns Promise resolving to array of locations with visited_at timestamp
+ * @throws {GeoError} DATABASE_ERROR if Supabase RPC call fails
+ *
+ * @example
+ * ```typescript
+ * import { createClient } from '@/lib/supabase/client'
+ * import { fetchRecentlyVisitedLocations } from '@/lib/utils/geo'
+ *
+ * const supabase = createClient()
+ *
+ * // Fetch all recently visited locations (within 3 hours)
+ * const visitedLocations = await fetchRecentlyVisitedLocations(supabase)
+ *
+ * // Display in location picker
+ * visitedLocations.forEach(loc => {
+ *   console.log(`${loc.name} - visited at ${loc.visited_at}`)
+ * })
+ *
+ * // With result limit
+ * const topFive = await fetchRecentlyVisitedLocations(supabase, {
+ *   max_results: 5
+ * })
+ * ```
+ *
+ * @see {@link recordLocationVisit} Function to record a new visit
+ * @see {@link hooks/useVisitedLocations} React hook for component integration
+ */
+export async function fetchRecentlyVisitedLocations(
+  supabase: SupabaseClient,
+  params: RecentlyVisitedLocationParams = {}
+): Promise<LocationWithVisit[]> {
+  const maxResults = params.max_results ?? null
+
+  // Call the database function via RPC
+  // The function uses auth.uid() internally to get the current user
+  const { data, error } = await supabase.rpc('get_recently_visited_locations', {
+    max_results: maxResults,
+  })
+
+  if (error) {
+    throw new GeoError(
+      'DATABASE_ERROR',
+      `Failed to fetch recently visited locations: ${error.message}`,
+      error
+    )
+  }
+
+  return (data ?? []) as LocationWithVisit[]
 }
 
 // ============================================================================
