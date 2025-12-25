@@ -974,3 +974,60 @@ export function isWithinRadius(
 
   return distance <= radiusMeters
 }
+
+/**
+ * Formats a visit timestamp into a human-readable "Visited X ago" string.
+ *
+ * Automatically chooses the best time unit:
+ * - < 1 minute: "Visited just now"
+ * - 1-59 minutes: "Visited X min ago"
+ * - 60+ minutes: "Visited X hr ago" (with hours rounded)
+ *
+ * @param visitedAt - ISO 8601 timestamp string or Date object of when the visit occurred
+ * @returns Formatted string (e.g., "Visited 5 min ago", "Visited 2 hr ago")
+ *
+ * @example
+ * ```typescript
+ * import { formatVisitedAgo } from '@/lib/utils/geo'
+ *
+ * // In a React component
+ * function LocationCard({ location }: { location: LocationWithVisit }) {
+ *   return (
+ *     <div>
+ *       <h3>{location.name}</h3>
+ *       <span className="text-muted">
+ *         {formatVisitedAgo(location.visited_at)}
+ *       </span>
+ *     </div>
+ *   )
+ * }
+ *
+ * // Output examples:
+ * formatVisitedAgo(new Date())                          // "Visited just now"
+ * formatVisitedAgo(new Date(Date.now() - 5 * 60000))    // "Visited 5 min ago"
+ * formatVisitedAgo(new Date(Date.now() - 90 * 60000))   // "Visited 2 hr ago"
+ * formatVisitedAgo('2024-01-01T12:00:00Z')              // "Visited X min/hr ago" (depends on current time)
+ * ```
+ *
+ * @see {@link fetchRecentlyVisitedLocations} Returns locations with visited_at timestamps
+ */
+export function formatVisitedAgo(visitedAt: string | Date): string {
+  const visitDate = typeof visitedAt === 'string' ? new Date(visitedAt) : visitedAt
+  const now = new Date()
+  const diffMs = now.getTime() - visitDate.getTime()
+
+  // Convert to minutes
+  const diffMinutes = Math.floor(diffMs / 60000)
+
+  if (diffMinutes < 1) {
+    return 'Visited just now'
+  }
+
+  if (diffMinutes < 60) {
+    return `Visited ${diffMinutes} min ago`
+  }
+
+  // Convert to hours (rounded)
+  const diffHours = Math.round(diffMinutes / 60)
+  return `Visited ${diffHours} hr ago`
+}
