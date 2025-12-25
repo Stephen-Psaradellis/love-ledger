@@ -42,9 +42,10 @@ import { Alert, Animated } from 'react-native'
 import { locationToItem, type LocationItem } from '../../components/LocationPicker'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLocation } from '../../hooks/useLocation'
-import { useVisitedLocations } from '../../hooks/useNearbyLocations'
+import { useVisitedLocations, useNearbyLocations } from '../../hooks/useNearbyLocations'
 import { supabase } from '../../lib/supabase'
 import { uploadSelfie } from '../../lib/storage'
+import { recordLocationVisit } from '../../lib/utils/geo'
 import { DEFAULT_AVATAR_CONFIG } from '../../types/avatar'
 import type { AvatarConfig } from '../../types/avatar'
 import type { MainStackNavigationProp, CreatePostRouteProp } from '../../navigation/types'
@@ -219,13 +220,36 @@ export function useCreatePostForm(
   const {
     locations: visitedLocations,
     isLoading: loadingLocations,
+    refetch: refetchVisitedLocations,
   } = useVisitedLocations({
     // Only fetch when user reaches the location step
     enabled: currentStep === 'location',
   })
 
+  // User coordinates for check-in functionality
+  const userCoordinates = useMemo(() => {
+    if (latitude && longitude) {
+      return { latitude, longitude }
+    }
+    return null
+  }, [latitude, longitude])
+
+  // Fetch nearby locations for check-in (recording visits for nearby POIs)
+  const {
+    locations: nearbyLocations,
+  } = useNearbyLocations(userCoordinates, {
+    // Only fetch when user reaches the location step and has valid coordinates
+    enabled: currentStep === 'location' && userCoordinates !== null,
+    // Use a smaller radius for check-in purposes (within walking distance)
+    radiusMeters: 200,
+    maxResults: 20,
+  })
+
   // Animation for progress bar
   const progressAnim = useRef(new Animated.Value(0)).current
+
+  // Track whether we've already triggered check-ins for this location step view
+  const hasTriggeredCheckIns = useRef(false)
 
   // ---------------------------------------------------------------------------
   // COMPUTED VALUES
@@ -307,6 +331,67 @@ export function useCreatePostForm(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedLocationId])
 
+  /**
+   * Record check-ins for nearby locations when user views the location list.
+   *
+   * When the user reaches the location step, we attempt to record visits for
+   * all nearby POIs. The server-side 50m proximity check in the RPC ensures
+   * only legitimate visits are recorded. After recording, we refetch visited
+   * locations to update the list.
+   *
+   * This is a "fire and forget" operation - we don't block the UI while
+   * recording visits.
+   */
+  useEffect(() => {
+    // Only trigger when on location step with nearby locations available
+    if (currentStep !== 'location') {
+      // Reset the flag when leaving location step
+      hasTriggeredCheckIns.current = false
+      return
+    }
+
+    // Don't trigger if we've already done check-ins for this step view
+    if (hasTriggeredCheckIns.current) {
+      return
+    }
+
+    // Need valid user coordinates to record visits
+    if (!userCoordinates) {
+      return
+    }
+
+    // Wait until we have nearby locations to check in to
+    if (nearbyLocations.length === 0) {
+      return
+    }
+
+    // Mark that we've triggered check-ins
+    hasTriggeredCheckIns.current = true
+
+    // Fire-and-forget: Record visits for all nearby POIs
+    // The server-side proximity check (50m) will only record valid visits
+    const recordVisits = async () => {
+      try {
+        // Record visits in parallel for all nearby locations
+        const visitPromises = nearbyLocations.map((location) =>
+          recordLocationVisit(supabase, {
+            location_id: location.id,
+            user_lat: userCoordinates.latitude,
+            user_lon: userCoordinates.longitude,
+          }).catch(() => null) // Silently ignore individual failures
+        )
+
+        await Promise.all(visitPromises)
+
+        // Refetch visited locations to update the list with any new visits
+        await refetchVisitedLocations()
+      } catch {
+        // Silently fail - don't disrupt the user flow for check-in errors
+      }
+    }
+
+    recordVisits()
+  }, [currentStep, userCoordinates, nearbyLocations, refetchVisitedLocations])
 
   // ---------------------------------------------------------------------------
   // DATA FETCHING
