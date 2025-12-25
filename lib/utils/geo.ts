@@ -134,6 +134,31 @@ export const LATITUDE_RANGE = { min: -90, max: 90 } as const
  */
 export const LONGITUDE_RANGE = { min: -180, max: 180 } as const
 
+/**
+ * Default proximity radius in meters for visit verification.
+ *
+ * Users must be within this distance of a POI to be considered
+ * "physically present" and eligible to record a visit.
+ *
+ * The 50m threshold balances:
+ * - GPS accuracy limitations (typical smartphone accuracy is 3-10m outdoors)
+ * - Reasonable proximity for "being at" a venue
+ * - Account for POI coordinate placement variance
+ *
+ * @constant {number}
+ */
+export const PROXIMITY_RADIUS_METERS = 50
+
+/**
+ * Earth's mean radius in meters.
+ *
+ * Used for Haversine formula distance calculations.
+ * This is the volumetric mean radius of Earth.
+ *
+ * @constant {number}
+ */
+export const EARTH_RADIUS_METERS = 6_371_000
+
 // ============================================================================
 // Error Types
 // ============================================================================
@@ -632,4 +657,126 @@ export function formatDistance(meters: number): string {
   const km = meters / 1000
   // Show 1 decimal place for km
   return `${km.toFixed(1)}km`
+}
+
+/**
+ * Calculates the distance between two coordinate points using the Haversine formula.
+ *
+ * The Haversine formula calculates the great-circle distance between two points
+ * on a sphere given their longitudes and latitudes. This is accurate for short
+ * distances and suitable for proximity checks.
+ *
+ * ## Accuracy
+ *
+ * The Haversine formula assumes a perfectly spherical Earth, which introduces
+ * a maximum error of about 0.5% compared to geodesic calculations. For proximity
+ * checks at 50m, this is negligible (max ~0.25m error).
+ *
+ * ## Performance
+ *
+ * This is a pure JavaScript calculation (no database call) suitable for:
+ * - Client-side proximity filtering before database queries
+ * - Real-time location checks during user movement
+ * - Batch processing of multiple coordinate pairs
+ *
+ * @param point1 - First coordinate point (user's location)
+ * @param point2 - Second coordinate point (POI location)
+ * @returns Distance in meters between the two points
+ * @throws {GeoError} INVALID_COORDINATES if either point has invalid coordinates
+ *
+ * @example
+ * ```typescript
+ * import { calculateDistance } from '@/lib/utils/geo'
+ *
+ * const userLocation = { latitude: 37.7749, longitude: -122.4194 }
+ * const poiLocation = { latitude: 37.7750, longitude: -122.4195 }
+ *
+ * const distance = calculateDistance(userLocation, poiLocation)
+ * console.log(`Distance: ${distance.toFixed(1)}m`)  // Distance: 14.1m
+ * ```
+ */
+export function calculateDistance(point1: Coordinates, point2: Coordinates): number {
+  // Validate both coordinate pairs
+  assertValidCoordinates(point1)
+  assertValidCoordinates(point2)
+
+  // Convert degrees to radians
+  const lat1Rad = (point1.latitude * Math.PI) / 180
+  const lat2Rad = (point2.latitude * Math.PI) / 180
+  const deltaLatRad = ((point2.latitude - point1.latitude) * Math.PI) / 180
+  const deltaLonRad = ((point2.longitude - point1.longitude) * Math.PI) / 180
+
+  // Haversine formula
+  const a =
+    Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +
+    Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(deltaLonRad / 2) * Math.sin(deltaLonRad / 2)
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  return EARTH_RADIUS_METERS * c
+}
+
+/**
+ * Checks if a user is within a specified radius of a location.
+ *
+ * This function is the primary proximity check for visit verification.
+ * It determines whether a user is "physically present" at a POI.
+ *
+ * ## Use Cases
+ *
+ * 1. **Visit Recording**: Check if user is close enough to a POI to record a visit
+ * 2. **Eligibility Filtering**: Filter nearby locations to only those within reach
+ * 3. **Geofencing**: Trigger actions when user enters/exits a location boundary
+ *
+ * ## Defaults
+ *
+ * The default radius is {@link PROXIMITY_RADIUS_METERS} (50 meters), which is
+ * the standard threshold for "being at" a venue in the Love Ledger app.
+ *
+ * @param userLocation - User's current GPS coordinates
+ * @param poiLocation - POI (Point of Interest) coordinates
+ * @param radiusMeters - Maximum distance in meters (default: 50m)
+ * @returns true if user is within the radius, false otherwise
+ * @throws {GeoError} INVALID_COORDINATES if coordinates are invalid
+ * @throws {GeoError} INVALID_RADIUS if radius is not positive
+ *
+ * @example
+ * ```typescript
+ * import { isWithinRadius, PROXIMITY_RADIUS_METERS } from '@/lib/utils/geo'
+ *
+ * const userLocation = { latitude: 37.7749, longitude: -122.4194 }
+ * const cafeLocation = { latitude: 37.7750, longitude: -122.4195 }
+ *
+ * // Check with default 50m radius
+ * if (isWithinRadius(userLocation, cafeLocation)) {
+ *   console.log('User is at the cafe!')
+ *   await recordVisit(cafeLocation.id)
+ * }
+ *
+ * // Check with custom radius (100m)
+ * if (isWithinRadius(userLocation, cafeLocation, 100)) {
+ *   console.log('User is near the cafe')
+ * }
+ *
+ * // Filtering nearby locations to only those within proximity
+ * const eligibleLocations = nearbyLocations.filter(loc =>
+ *   isWithinRadius(userLocation, { latitude: loc.latitude, longitude: loc.longitude })
+ * )
+ * ```
+ *
+ * @see {@link calculateDistance} For getting the actual distance value
+ * @see {@link PROXIMITY_RADIUS_METERS} Default proximity threshold
+ */
+export function isWithinRadius(
+  userLocation: Coordinates,
+  poiLocation: Coordinates,
+  radiusMeters: number = PROXIMITY_RADIUS_METERS
+): boolean {
+  // Validate radius
+  assertValidRadius(radiusMeters)
+
+  // Calculate distance (this validates coordinates internally)
+  const distance = calculateDistance(userLocation, poiLocation)
+
+  return distance <= radiusMeters
 }
