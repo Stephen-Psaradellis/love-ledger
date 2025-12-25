@@ -556,6 +556,16 @@ export interface LocationsWithActivePostsParams extends NearbyLocationParams {
 }
 
 /**
+ * Parameters for the get_recently_visited_locations database function.
+ * Returns locations the current user has visited within the eligibility window.
+ * Note: The RPC function uses auth.uid() internally, so no user_id is needed.
+ */
+export interface RecentlyVisitedLocationParams {
+  /** Maximum number of results to return (default: unlimited) */
+  max_results?: number
+}
+
+/**
  * Location with distance information from geospatial query.
  * Returned by the get_nearby_locations database function.
  */
