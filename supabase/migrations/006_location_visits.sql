@@ -67,3 +67,34 @@ CREATE INDEX IF NOT EXISTS idx_location_visits_created_at ON location_visits(cre
 CREATE INDEX IF NOT EXISTS idx_location_visits_recent
     ON location_visits(user_id, visited_at DESC)
     WHERE visited_at > NOW() - INTERVAL '3 hours';
+
+-- ============================================================================
+-- ROW LEVEL SECURITY
+-- ============================================================================
+-- Users can only see and insert their own location visits
+-- This protects user location privacy by preventing access to other users' visits
+
+ALTER TABLE location_visits ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to view only their own location visits
+CREATE POLICY "location_visits_select_own"
+  ON location_visits
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Allow users to insert only their own location visits
+CREATE POLICY "location_visits_insert_own"
+  ON location_visits
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Note: UPDATE and DELETE are intentionally not allowed for regular users
+-- Location visits are append-only and should only be cleaned up by system processes
+-- This preserves data integrity for post eligibility verification
+
+-- ============================================================================
+-- POLICY COMMENTS
+-- ============================================================================
+
+COMMENT ON POLICY "location_visits_select_own" ON location_visits IS 'Users can only view their own location visits for privacy';
+COMMENT ON POLICY "location_visits_insert_own" ON location_visits IS 'Users can only record their own location visits';
