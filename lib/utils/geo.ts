@@ -69,6 +69,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   Coordinates,
+  LocationVisit,
   LocationWithDistance,
   LocationWithActivePosts,
   NearbyLocationParams,
@@ -565,6 +566,119 @@ export async function fetchLocationsWithActivePosts(
   }
 
   return (data ?? []) as LocationWithActivePosts[]
+}
+
+/**
+ * Parameters for recording a location visit.
+ */
+export interface RecordLocationVisitParams {
+  /** UUID of the location being visited */
+  location_id: string
+  /** User's current latitude (-90 to 90) */
+  user_lat: number
+  /** User's current longitude (-180 to 180) */
+  user_lon: number
+  /** GPS accuracy in meters (optional, for audit/debugging) */
+  accuracy?: number
+}
+
+/**
+ * Records a user visit to a location if they are within proximity (50 meters).
+ *
+ * ## Purpose
+ *
+ * This function is the primary way to record user presence at a location.
+ * It performs server-side proximity verification using PostGIS to ensure
+ * the user is physically present (within 50m) before recording the visit.
+ *
+ * ## Proximity Verification
+ *
+ * The database function uses **ST_DWithin** with geography type to perform
+ * accurate meter-based distance calculations. If the user is more than 50m
+ * from the location coordinates, the visit is **not** recorded and null is returned.
+ *
+ * This server-side verification prevents clients from spoofing visits to
+ * locations they haven't actually visited.
+ *
+ * ## Use Cases
+ *
+ * 1. **Check-in on App Open**: When user opens the app near a POI, record the visit
+ * 2. **Background Location Update**: Silently record visits when user is at a POI
+ * 3. **Post Creation Flow**: Verify eligibility before showing location as an option
+ *
+ * ## Fire-and-Forget Pattern
+ *
+ * This function can be called without awaiting the result for non-blocking check-ins:
+ *
+ * ```typescript
+ * // Fire-and-forget (don't block UI)
+ * recordLocationVisit(supabase, params).catch(() => {})
+ * ```
+ *
+ * @param supabase - Supabase client instance (from createClient())
+ * @param params - Visit recording parameters
+ * @param params.location_id - UUID of the location to record a visit to
+ * @param params.user_lat - User's current latitude (-90 to 90)
+ * @param params.user_lon - User's current longitude (-180 to 180)
+ * @param params.accuracy - GPS accuracy in meters (optional, for audit)
+ * @returns Promise resolving to the created LocationVisit if within 50m, null if too far
+ * @throws {GeoError} INVALID_COORDINATES if lat/lon are out of range
+ * @throws {GeoError} DATABASE_ERROR if Supabase RPC call fails
+ *
+ * @example
+ * ```typescript
+ * import { createClient } from '@/lib/supabase/client'
+ * import { recordLocationVisit } from '@/lib/utils/geo'
+ *
+ * const supabase = createClient()
+ *
+ * // Record a visit when user is near a location
+ * const visit = await recordLocationVisit(supabase, {
+ *   location_id: 'abc-123-def',
+ *   user_lat: 37.7749,
+ *   user_lon: -122.4194,
+ *   accuracy: 10  // GPS accuracy in meters (optional)
+ * })
+ *
+ * if (visit) {
+ *   console.log(`Visit recorded at ${visit.visited_at}`)
+ * } else {
+ *   console.log('User is not within 50m of the location')
+ * }
+ * ```
+ *
+ * @see {@link PROXIMITY_RADIUS_METERS} The 50m proximity threshold
+ * @see {@link isWithinRadius} Client-side proximity check (use before calling this)
+ */
+export async function recordLocationVisit(
+  supabase: SupabaseClient,
+  params: RecordLocationVisitParams
+): Promise<LocationVisit | null> {
+  // Validate coordinates
+  assertValidCoordinates({
+    latitude: params.user_lat,
+    longitude: params.user_lon,
+  })
+
+  // Call the PostGIS function via RPC
+  // The database function handles the 50m proximity check
+  const { data, error } = await supabase.rpc('record_location_visit', {
+    p_location_id: params.location_id,
+    p_user_lat: params.user_lat,
+    p_user_lon: params.user_lon,
+    p_accuracy: params.accuracy ?? null,
+  })
+
+  if (error) {
+    throw new GeoError(
+      'DATABASE_ERROR',
+      `Failed to record location visit: ${error.message}`,
+      error
+    )
+  }
+
+  // The RPC returns null if user is not within proximity
+  return data as LocationVisit | null
 }
 
 // ============================================================================
