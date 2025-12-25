@@ -511,10 +511,3 @@ export async function isConnectionExpensive(): Promise<boolean> {
 // ============================================================================
 
 export default useNetworkStatus
-export type {
-  NetworkConnectionType,
-  NetworkState,
-  NetworkDetails,
-  UseNetworkStatusOptions,
-  UseNetworkStatusResult,
-}

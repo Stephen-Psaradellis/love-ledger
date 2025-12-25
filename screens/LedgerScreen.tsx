@@ -324,7 +324,7 @@ export function LedgerScreen(): JSX.Element {
     return (
       <View style={styles.emptyContainer}>
         <EmptyLedger
-          onAction={handleCreatePost}
+          onCreatePost={handleCreatePost}
           testID="ledger-empty"
         />
       </View>
@@ -378,10 +378,8 @@ export function LedgerScreen(): JSX.Element {
     return (
       <View style={styles.centeredContainer} testID="ledger-error">
         <ErrorState
-          title="Failed to Load Posts"
-          message={error}
-          onAction={handleRetry}
-          actionLabel="Try Again"
+          error={error || 'Failed to load posts'}
+          onRetry={handleRetry}
         />
       </View>
     )

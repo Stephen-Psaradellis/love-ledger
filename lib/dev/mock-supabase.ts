@@ -209,7 +209,9 @@ export const devMockSession: DevMockSession = {
 export const devMockProfile: Profile = {
   id: devMockUser.id,
   username: 'DevUser',
+  display_name: 'Dev User',
   avatar_config: DEFAULT_AVATAR_CONFIG as AvatarConfig,
+  own_avatar: DEFAULT_AVATAR_CONFIG as AvatarConfig,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }

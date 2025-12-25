@@ -345,10 +345,8 @@ export function PostDetailScreen(): JSX.Element {
     return (
       <View style={styles.centeredContainer} testID="post-detail-error">
         <ErrorState
-          title="Unable to Load Post"
-          message={error || 'Post not found.'}
-          onAction={handleRetry}
-          actionLabel="Try Again"
+          error={error || "Post not found"}
+          onRetry={handleRetry}
         />
       </View>
     )
@@ -422,7 +420,7 @@ colors={[COLORS.primary]}
         <Text style={styles.sectionLabel}>Message</Text>
         <View style={styles.noteCard}>
           <Text style={styles.noteText} testID="post-detail-note">
-            {post.note}
+            {post.message}
           </Text>
         </View>
       </View>

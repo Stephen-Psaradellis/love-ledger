@@ -620,4 +620,3 @@ const styles = StyleSheet.create({
 
 export default MapView
 export { DEFAULT_REGION, ZOOM_DELTAS, MARKER_COLORS }
-export type { MapMarker, MapViewProps }

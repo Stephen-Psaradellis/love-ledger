@@ -320,7 +320,7 @@ export const PostCard = memo(function PostCard({
 
   // Truncate note for preview
   const maxLength = compact ? NOTE_PREVIEW_LENGTH_COMPACT : NOTE_PREVIEW_LENGTH
-  const notePreview = truncateText(post.note, maxLength)
+  const notePreview = truncateText(post.message, maxLength)
 
   // Format timestamp
   const timeAgo = formatRelativeTime(post.created_at)

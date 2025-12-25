@@ -86,6 +86,27 @@ export interface LocationItem {
 }
 
 /**
+ * Converts a database Location entity to a LocationItem for display
+ */
+export function locationToItem(location: {
+  id: string
+  name: string
+  address?: string | null
+  latitude: number
+  longitude: number
+  google_place_id?: string | null
+}): LocationItem {
+  return {
+    id: location.id,
+    name: location.name,
+    address: location.address ?? null,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    place_id: location.google_place_id ?? null,
+  }
+}
+
+/**
  * Props for the LocationPicker component
  */
 export interface LocationPickerProps {
@@ -513,8 +534,7 @@ export function LocationPicker({
             icon="⚠️"
             title="Error Loading Locations"
             message={error}
-            actionLabel={onRetry ? 'Retry' : undefined}
-            onAction={onRetry}
+            action={onRetry ? { label: 'Retry', onPress: onRetry } : undefined}
           />
         </View>
       </View>

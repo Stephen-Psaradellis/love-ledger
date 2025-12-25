@@ -538,6 +538,11 @@ export const AVATAR_OPTION_LABELS: Record<AvatarAttribute, string> = {
 }
 
 /**
+ * Alias for AVATAR_OPTION_LABELS for backward compatibility
+ */
+export const AVATAR_ATTRIBUTE_LABELS = AVATAR_OPTION_LABELS
+
+/**
  * Attributes that are most important for physical matching
  * These should be weighted higher in the matching algorithm
  */

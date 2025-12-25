@@ -530,9 +530,3 @@ const styles = StyleSheet.create({
 // ============================================================================
 
 export default OfflineIndicator
-export type {
-  OfflineIndicatorPosition,
-  OfflineIndicatorVariant,
-  OfflineIndicatorProps,
-  ControlledOfflineIndicatorProps,
-}

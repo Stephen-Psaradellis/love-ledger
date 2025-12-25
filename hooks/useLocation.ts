@@ -526,9 +526,3 @@ export function formatCoordinates(
 // ============================================================================
 
 export default useLocation
-export type {
-  LocationPermissionStatus,
-  ExtendedLocationState,
-  UseLocationOptions,
-  UseLocationResult,
-}

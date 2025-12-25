@@ -290,8 +290,3 @@ export function MinimalDevModeBanner(
 // ============================================================================
 
 export default DevModeBanner
-export type {
-  DevModeBannerPosition,
-  DevModeBannerVariant,
-  DevModeBannerProps,
-}

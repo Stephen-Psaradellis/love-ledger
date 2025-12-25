@@ -515,7 +515,6 @@ testID="profile-cancel-edit-button"
           <AvatarBuilder
             initialConfig={currentAvatarConfig || DEFAULT_AVATAR_CONFIG}
             onSave={handleSaveAvatar}
-            isSaving={isSavingAvatar}
             testID="profile-avatar-builder"
           />
         </SafeAreaView>

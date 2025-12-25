@@ -36,8 +36,12 @@ export interface Profile {
   id: UUID
   /** Optional username for the user */
   username: string | null
+  /** Optional display name for the user */
+  display_name: string | null
   /** JSONB avatar configuration describing the user themselves (for matching) */
   avatar_config: AvatarConfig | null
+  /** JSONB avatar configuration describing the user themselves (for matching against posts) */
+  own_avatar: AvatarConfig | null
   /** Timestamp when the profile was created */
   created_at: Timestamp
   /** Timestamp when the profile was last updated */
@@ -50,7 +54,9 @@ export interface Profile {
 export interface ProfileInsert {
   id: UUID
   username?: string | null
+  display_name?: string | null
   avatar_config?: AvatarConfig | null
+  own_avatar?: AvatarConfig | null
   created_at?: Timestamp
   updated_at?: Timestamp
 }
@@ -60,7 +66,9 @@ export interface ProfileInsert {
  */
 export interface ProfileUpdate {
   username?: string | null
+  display_name?: string | null
   avatar_config?: AvatarConfig | null
+  own_avatar?: AvatarConfig | null
   updated_at?: Timestamp
 }
 

@@ -29,11 +29,13 @@ import type {
   AccessoriesType,
   GraphicType,
   PartialAvatarConfig,
+} from '../types/avatar'
+import {
+  DEFAULT_AVATAR_CONFIG,
   PRIMARY_MATCHING_ATTRIBUTES,
   SECONDARY_MATCHING_ATTRIBUTES,
   AVATAR_OPTIONS,
 } from '../types/avatar'
-import { DEFAULT_AVATAR_CONFIG } from '../types/avatar'
 import type { MatchResult as BaseMatchResult } from './types'
 
 // ============================================================================
@@ -459,7 +461,7 @@ export function validateWeightsSum(
  * @param thresholds - The thresholds to validate
  * @returns true if excellent > good > fair
  */
-exportfunction validateThresholdsOrder(thresholds: MatchThresholds): boolean {
+export function validateThresholdsOrder(thresholds: MatchThresholds): boolean {
   return (
     thresholds.excellent > thresholds.good &&
     thresholds.good > thresholds.fair &&
@@ -962,4 +964,60 @@ export function getPrimaryMatchCount(
   }
 
   return { matchCount, total }
+}
+// ============================================================================
+// VALIDATION AND SUMMARY FUNCTIONS
+// ============================================================================
+
+/**
+ * Checks if an avatar configuration is valid for matching.
+ *
+ * An avatar is considered valid for matching if it exists and has
+ * at least the primary attributes defined.
+ *
+ * @param avatar - The avatar configuration to validate
+ * @returns true if the avatar has enough data for matching
+ */
+export function isValidForMatching(avatar: AvatarConfig | null | undefined): boolean {
+  if (!avatar) {
+    return false
+  }
+
+  // Check that at least the primary attributes are defined
+  return PRIMARY_MATCHING_ATTRIBUTES.every(
+    (attr) => avatar[attr] !== undefined && avatar[attr] !== null
+  )
+}
+
+/**
+ * Returns a summary of how many attributes match between two avatars.
+ *
+ * Useful for displaying match statistics like "8 of 12 features match (67%)"
+ *
+ * @param targetAvatar - The target avatar from the post
+ * @param consumerAvatar - The consumer's avatar
+ * @returns Object with matchCount, total, and percentage
+ */
+export function getMatchSummary(
+  targetAvatar: AvatarConfig,
+  consumerAvatar: AvatarConfig
+): { matchCount: number; total: number; percentage: number } {
+  const allAttributes = [...PRIMARY_MATCHING_ATTRIBUTES, ...SECONDARY_MATCHING_ATTRIBUTES]
+  let matchCount = 0
+  const total = allAttributes.length
+
+  for (const attribute of allAttributes) {
+    const similarity = calculateAttributeSimilarity(
+      attribute,
+      targetAvatar[attribute],
+      consumerAvatar[attribute]
+    )
+    if (similarity >= 0.5) {
+      matchCount++
+    }
+  }
+
+  const percentage = Math.round((matchCount / total) * 100)
+
+  return { matchCount, total, percentage }
 }
