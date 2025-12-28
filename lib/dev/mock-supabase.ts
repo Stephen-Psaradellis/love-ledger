@@ -250,6 +250,8 @@ export const devMockProfile: Profile = {
   own_avatar: null,
   rpm_avatar: null,
   rpm_avatar_id: 'dev-rpm-avatar-123',
+  is_verified: false,
+  verified_at: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }

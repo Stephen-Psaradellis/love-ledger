@@ -153,6 +153,11 @@ export type PostDetailRouteProp = RouteProp<MainStackParamList, 'PostDetail'>
 export type ChatRouteProp = RouteProp<MainStackParamList, 'Chat'>
 export type AvatarBuilderRouteProp = RouteProp<MainStackParamList, 'AvatarBuilder'>
 
+/** @deprecated Use AvatarBuilderScreenProps instead */
+export type AvatarCreatorScreenProps = AvatarBuilderScreenProps
+/** @deprecated Use AvatarBuilderRouteProp instead */
+export type AvatarCreatorRouteProp = AvatarBuilderRouteProp
+
 // ============================================================================
 // NAVIGATION CONSTANTS
 // ============================================================================

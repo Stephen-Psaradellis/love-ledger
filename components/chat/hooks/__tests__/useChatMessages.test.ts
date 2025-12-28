@@ -33,6 +33,8 @@ const mockProfile = {
   own_avatar: {},
   rpm_avatar: null,
   rpm_avatar_id: null,
+  is_verified: false,
+  verified_at: null,
   created_at: '2024-01-01T00:00:00.000Z',
   updated_at: '2024-01-01T00:00:00.000Z',
 }
@@ -45,6 +47,8 @@ const mockCurrentUserProfile = {
   own_avatar: {},
   rpm_avatar: null,
   rpm_avatar_id: null,
+  is_verified: false,
+  verified_at: null,
   created_at: '2024-01-01T00:00:00.000Z',
   updated_at: '2024-01-01T00:00:00.000Z',
 }

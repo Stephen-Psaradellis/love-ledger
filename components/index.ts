@@ -94,7 +94,6 @@ export {
   PostCardNoLocation,
   MatchablePostCard,
   PostCardListItem,
-  createPostCardRenderer,
   formatRelativeTime,
   truncateText,
   getMatchColor,

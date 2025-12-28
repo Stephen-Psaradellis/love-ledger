@@ -207,7 +207,7 @@ function MainStackNavigator() {
     <MainStack.Navigator
       screenOptions={{
         headerShown: true,
-        headerBackTitleVisible: false,
+        headerBackTitle: '',
         headerTintColor: '#007AFF',
       }}
     >
@@ -246,7 +246,7 @@ function MainStackNavigator() {
         }}
       />
       <MainStack.Screen
-        name={SCREENS.AvatarCreator}
+        name={SCREENS.AvatarBuilder}
         component={AvatarCreatorScreen}
         options={{
           headerShown: false, // AvatarCreatorScreen has its own header

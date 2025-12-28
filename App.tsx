@@ -40,6 +40,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 })
 
@@ -105,7 +107,7 @@ function NotificationRegistration({ children }: { children: React.ReactNode }): 
     // Cleanup listener on unmount
     return () => {
       if (notificationResponseListener.current) {
-        Notifications.removeNotificationSubscription(notificationResponseListener.current)
+        notificationResponseListener.current.remove()
       }
     }
   }, [])

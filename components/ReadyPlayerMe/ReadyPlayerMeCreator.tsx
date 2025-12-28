@@ -12,9 +12,9 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
-  SafeAreaView,
   Platform,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { WebView, WebViewMessageEvent } from 'react-native-webview'
 import {
   ReadyPlayerMeCreatorProps,

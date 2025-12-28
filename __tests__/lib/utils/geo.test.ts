@@ -64,6 +64,7 @@ const mockLocationWithActivePosts: LocationWithActivePosts = {
   latitude: 37.7880,
   longitude: -122.4075,
   place_types: ['cafe', 'food'],
+  post_count: 3,
   created_at: '2024-01-01T00:00:00.000Z',
   distance_meters: 750,
   active_post_count: 3,

@@ -34,7 +34,7 @@ import {
 } from 'react-native'
 import { useRoute, useNavigation } from '@react-navigation/native'
 
-import { PostCard, createPostCardRenderer } from '../components/PostCard'
+import { PostCard } from '../components/PostCard'
 import { selectionFeedback } from '../lib/haptics'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { EmptyLedger, ErrorState } from '../components/EmptyState'

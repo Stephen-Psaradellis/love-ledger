@@ -69,10 +69,9 @@ import {
   Alert,
 } from 'react-native'
 import { ReportPostModal } from './ReportModal'
-import { MediumAvatarPreview } from './AvatarPreview'
+import { MediumAvatarPreview } from './ReadyPlayerMe'
 import { VerifiedBadge } from './VerifiedBadge'
 import type { Post, PostWithDetails, Location, Profile } from '../types/database'
-import type { AvatarConfig } from '../types/avatar'
 
 // ============================================================================
 // TYPES
@@ -434,7 +433,7 @@ export const PostCard = memo(function PostCard({
       {/* Avatar Section */}
       <View style={styles.avatarContainer} testID={`${testID}-avatar`}>
         <MediumAvatarPreview
-          config={post.target_avatar as AvatarConfig}
+          avatarId={post.target_rpm_avatar?.avatarId ?? ''}
           testID={`${testID}-avatar-preview`}
         />
         {/* Match Badge */}
