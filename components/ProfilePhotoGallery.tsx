@@ -17,7 +17,7 @@
  * ```
  */
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useProfilePhotos } from '../hooks/useProfilePhotos'
 import { pickSelfieFromCamera, pickSelfieFromGallery } from '../utils/imagePicker'
 import { lightFeedback, warningFeedback, successFeedback } from '../lib/haptics'
+import { getPhotoShareCount } from '../lib/photoSharing'
 import type { ProfilePhotoWithUrl } from '../lib/profilePhotos'
 
 // ============================================================================
@@ -56,6 +57,8 @@ interface PhotoTileProps {
   onDelete: (photoId: string) => void
   onSetPrimary: (photoId: string) => void
   isDeleting: boolean
+  /** Number of matches this photo is shared with (0 = private) */
+  shareCount: number
 }
 
 // ============================================================================
@@ -72,7 +75,7 @@ const TILE_SIZE = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1
 // PHOTO TILE COMPONENT
 // ============================================================================
 
-function PhotoTile({ photo, onDelete, onSetPrimary, isDeleting }: PhotoTileProps) {
+function PhotoTile({ photo, onDelete, onSetPrimary, isDeleting, shareCount }: PhotoTileProps) {
   const handleLongPress = useCallback(async () => {
     await lightFeedback()
 
@@ -191,6 +194,20 @@ function PhotoTile({ photo, onDelete, onSetPrimary, isDeleting }: PhotoTileProps
         </View>
       )}
 
+      {/* Privacy badge - only show for approved photos */}
+      {photo.moderation_status === 'approved' && (
+        <View style={[styles.privacyBadge, shareCount > 0 ? styles.privacyShared : styles.privacyPrivate]}>
+          <Ionicons
+            name={shareCount > 0 ? 'people' : 'lock-closed'}
+            size={10}
+            color="#FFFFFF"
+          />
+          <Text style={styles.privacyText}>
+            {shareCount > 0 ? `Shared (${shareCount})` : 'Private'}
+          </Text>
+        </View>
+      )}
+
       {/* Overlay for rejected photos */}
       {photo.moderation_status === 'rejected' && (
         <View style={styles.rejectedOverlay}>
@@ -262,6 +279,40 @@ export function ProfilePhotoGallery({
   } = useProfilePhotos()
 
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null)
+  const [shareCounts, setShareCounts] = useState<Record<string, number>>({})
+
+  // Load share counts for all photos
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadShareCounts() {
+      const counts: Record<string, number> = {}
+
+      // Load share counts in parallel for all approved photos
+      await Promise.all(
+        photos
+          .filter((photo) => photo.moderation_status === 'approved')
+          .map(async (photo) => {
+            const count = await getPhotoShareCount(photo.id)
+            if (isMounted) {
+              counts[photo.id] = count
+            }
+          })
+      )
+
+      if (isMounted) {
+        setShareCounts(counts)
+      }
+    }
+
+    if (photos.length > 0) {
+      loadShareCounts()
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [photos])
 
   // Handle add photo action
   const handleAddPhoto = useCallback(async () => {
@@ -390,6 +441,7 @@ export function ProfilePhotoGallery({
             onDelete={handleDeletePhoto}
             onSetPrimary={handleSetPrimary}
             isDeleting={deletingPhotoId === photo.id}
+            shareCount={shareCounts[photo.id] ?? 0}
           />
         ))}
 
@@ -529,6 +581,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  privacyBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 3,
+  },
+  privacyPrivate: {
+    backgroundColor: 'rgba(142, 142, 147, 0.9)',
+  },
+  privacyShared: {
+    backgroundColor: 'rgba(52, 199, 89, 0.9)',
+  },
+  privacyText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '600',
   },
   rejectedOverlay: {
     ...StyleSheet.absoluteFillObject,

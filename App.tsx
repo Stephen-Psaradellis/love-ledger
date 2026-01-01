@@ -1,5 +1,5 @@
 /**
- * Love Ledger
+ * Backtrack
  *
  * Location-Based Anonymous Matchmaking Mobile App
  *
@@ -154,5 +154,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FAFAF9',
   },
 })

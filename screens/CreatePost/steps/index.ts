@@ -9,11 +9,12 @@
  * 2. AvatarStep - Build avatar of the person they saw
  * 3. NoteStep - Write a personalized note
  * 4. LocationStep - Select where they saw the person
- * 5. ReviewStep - Review and submit the post
+ * 5. TimeStep - Optional time specification for when they saw the person
+ * 6. ReviewStep - Review and submit the post
  *
  * @example
  * ```tsx
- * import { PhotoStep, AvatarStep, NoteStep, LocationStep, ReviewStep } from './steps'
+ * import { PhotoStep, AvatarStep, NoteStep, LocationStep, TimeStep, ReviewStep } from './steps'
  * ```
  */
 
@@ -28,6 +29,9 @@ export { NoteStep, type NoteStepProps } from './NoteStep'
 
 // Location selection step
 export { LocationStep, type LocationStepProps } from './LocationStep'
+
+// Time specification step (optional)
+export { TimeStep, type TimeStepProps } from './TimeStep'
 
 // Review and submit step
 export { ReviewStep, type ReviewStepProps } from './ReviewStep'

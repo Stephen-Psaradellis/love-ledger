@@ -64,7 +64,7 @@ export interface ProfilePhotoWithUrl extends ProfilePhoto {
 /**
  * Maximum number of profile photos per user
  */
-export const MAX_PROFILE_PHOTOS = 5
+export const MAX_PROFILE_PHOTOS = 6
 
 /**
  * Error messages

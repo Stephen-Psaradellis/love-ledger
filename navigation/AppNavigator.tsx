@@ -1,7 +1,7 @@
 /**
  * App Navigator
  *
- * Main navigation structure for the Love Ledger app.
+ * Main navigation structure for the Backtrack app.
  * Implements a nested navigation pattern:
  * - RootStack: Switches between Auth and Main based on authentication state
  * - AuthStack: Login and password reset screens
@@ -18,6 +18,7 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'rea
 
 import { useAuth } from '../contexts/AuthContext'
 import { SmallAvatarPreview } from '../components/ReadyPlayerMe'
+import { AnimatedTabBar } from '../components/navigation/AnimatedTabBar'
 import { AuthScreen } from '../screens/AuthScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
 import { HomeScreen } from '../screens/HomeScreen'
@@ -27,6 +28,7 @@ import { PostDetailScreen } from '../screens/PostDetailScreen'
 import { ChatScreen } from '../screens/ChatScreen'
 import { ChatListScreen } from '../screens/ChatListScreen'
 import { AvatarCreatorScreen } from '../screens/AvatarCreatorScreen'
+import { LegalScreen } from '../screens/LegalScreen'
 import type {
   RootStackParamList,
   AuthStackParamList,
@@ -43,6 +45,24 @@ const RootStack = createNativeStackNavigator<RootStackParamList>()
 const AuthStack = createNativeStackNavigator<AuthStackParamList>()
 const MainStack = createNativeStackNavigator<MainStackParamList>()
 const MainTabs = createBottomTabNavigator<MainTabParamList>()
+
+// ============================================================================
+// LINKING FALLBACK COMPONENT
+// ============================================================================
+
+/**
+ * Fallback component shown while NavigationContainer resolves the initial URL
+ * This prevents a black screen during deep-linking initialization
+ */
+function LinkingFallback() {
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#FF6B47" />
+      <Text style={styles.loadingText}>Loading...</Text>
+    </View>
+  )
+}
+
 
 // ============================================================================
 // PLACEHOLDER SCREENS
@@ -125,12 +145,9 @@ function HeaderAvatar({ onPress }: { onPress?: () => void }) {
 function MainTabNavigator() {
   return (
     <MainTabs.Navigator
+      tabBar={(props) => <AnimatedTabBar {...props} />}
       screenOptions={{
         headerShown: true,
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
-        tabBarStyle: styles.tabBar,
-        tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
       <MainTabs.Screen
@@ -138,7 +155,7 @@ function MainTabNavigator() {
         component={HomeScreen}
         options={{
           title: TAB_LABELS.HomeTab,
-          headerTitle: 'Love Ledger',
+          headerTitle: 'Backtrack',
           // eslint-disable-next-line react/no-unstable-nested-components
           headerRight: () => <HeaderAvatar />,
         }}
@@ -208,7 +225,7 @@ function MainStackNavigator() {
       screenOptions={{
         headerShown: true,
         headerBackTitle: '',
-        headerTintColor: '#007AFF',
+        headerTintColor: '#FF6B47',
       }}
     >
       <MainStack.Screen
@@ -253,6 +270,13 @@ function MainStackNavigator() {
           presentation: 'modal',
         }}
       />
+      <MainStack.Screen
+        name={SCREENS.Legal}
+        component={LegalScreen}
+        options={{
+          headerShown: false, // LegalScreen has its own header
+        }}
+      />
     </MainStack.Navigator>
   )
 }
@@ -271,7 +295,7 @@ function RootNavigator() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#FF6B47" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     )
@@ -301,17 +325,17 @@ const prefix = Linking.createURL('/')
 /**
  * Deep-linking configuration for push notifications
  * Maps URLs like:
- * - loveledger://conversation/:conversationId -> Chat screen
- * - loveledger://match/:postId -> PostDetail screen
+ * - backtrack://conversation/:conversationId -> Chat screen
+ * - backtrack://match/:postId -> PostDetail screen
  */
 const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: [prefix, 'loveledger://'],
+  prefixes: [prefix, 'backtrack://'],
   config: {
     screens: {
       Main: {
         screens: {
           // Deep-link for message notifications
-          // URL: loveledger://conversation/:conversationId
+          // URL: backtrack://conversation/:conversationId
           Chat: {
             path: 'conversation/:conversationId',
             parse: {
@@ -319,7 +343,7 @@ const linking: LinkingOptions<RootStackParamList> = {
             },
           },
           // Deep-link for match notifications
-          // URL: loveledger://match/:postId
+          // URL: backtrack://match/:postId
           PostDetail: {
             path: 'match/:postId',
             parse: {
@@ -357,7 +381,7 @@ const linking: LinkingOptions<RootStackParamList> = {
  */
 export function AppNavigator() {
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer linking={linking} fallback={<LinkingFallback />}>
       <RootNavigator />
     </NavigationContainer>
   )
@@ -372,40 +396,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FAFAF9',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#8E8E93',
+    color: '#78716C',
   },
   placeholder: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F5F5F4',
   },
   placeholderTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000000',
+    color: '#1C1917',
     marginBottom: 8,
   },
   placeholderSubtitle: {
     fontSize: 16,
-    color: '#8E8E93',
-  },
-  tabBar: {
-    backgroundColor: '#FFFFFF',
-    borderTopColor: '#E5E5EA',
-    borderTopWidth: 1,
-    paddingTop: 4,
-    paddingBottom: 4,
-    height: 56,
-  },
-  tabBarLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    color: '#78716C',
   },
   headerAvatarContainer: {
     marginRight: 12,
@@ -418,14 +430,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: '#E7E5E4',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerAvatarPlaceholderText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#8E8E93',
+    color: '#78716C',
   },
 })
 

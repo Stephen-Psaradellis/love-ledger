@@ -7,6 +7,7 @@
 
 import type { StoredAvatar } from '../../components/ReadyPlayerMe'
 import type { LocationItem } from '../../components/LocationPicker'
+import type { TimeGranularity } from '../../types/database'
 
 // ============================================================================
 // TYPES
@@ -15,7 +16,7 @@ import type { LocationItem } from '../../components/LocationPicker'
 /**
  * Steps in the create post flow
  */
-export type CreatePostStep = 'photo' | 'avatar' | 'note' | 'location' | 'review'
+export type CreatePostStep = 'photo' | 'avatar' | 'note' | 'location' | 'time' | 'review'
 
 /**
  * Form data for creating a post
@@ -29,6 +30,10 @@ export interface CreatePostFormData {
   note: string
   /** Location where the connection happened */
   location: LocationItem | null
+  /** Date/time when the sighting occurred (optional) */
+  sightingDate: Date | null
+  /** Granularity of the sighting time: specific time or approximate period */
+  timeGranularity: TimeGranularity | null
 }
 
 /**
@@ -72,6 +77,12 @@ export const STEPS: StepConfig[] = [
     title: 'Where Did You See Them?',
     subtitle: 'Select the location of your missed connection',
     icon: '📍',
+  },
+  {
+    id: 'time',
+    title: 'When Did You See Them?',
+    subtitle: 'Add when you saw them (optional)',
+    icon: '🕐',
   },
   {
     id: 'review',

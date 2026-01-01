@@ -315,3 +315,164 @@ export async function removeAllUserPushTokens(): Promise<PushTokenResult> {
     }
   }
 }
+
+// ============================================================================
+// POST SORTING - 30-DAY DEPRIORITIZATION
+// ============================================================================
+
+/**
+ * Number of days after which a post should be deprioritized in sorting
+ */
+const DEPRIORITIZE_AFTER_DAYS = 30
+
+/**
+ * Milliseconds in one day
+ */
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+/**
+ * Interface for posts that support deprioritization sorting
+ * Posts must have created_at and optional sighting_date/time_granularity
+ */
+export interface DeprioritizablePost {
+  /** Post ID */
+  id: string
+  /** When the post was created */
+  created_at: string
+  /** Optional date when the sighting occurred */
+  sighting_date?: string | null
+  /** Time granularity for the sighting ('specific', 'morning', 'afternoon', 'evening') */
+  time_granularity?: string | null
+}
+
+/**
+ * Calculate the sort priority timestamp for a post
+ *
+ * Implements 30-day deprioritization logic:
+ * - Posts with sighting_date within 30 days: use sighting_date as priority
+ * - Posts with sighting_date older than 30 days: heavily deprioritize (subtract 60 days from created_at)
+ * - Posts without sighting_date: use created_at as priority
+ *
+ * This aligns with the SQL pattern:
+ * ```sql
+ * CASE
+ *   WHEN sighting_date IS NULL THEN created_at
+ *   WHEN sighting_date > now() - interval '30 days' THEN sighting_date
+ *   ELSE created_at - interval '60 days' -- Penalize old posts
+ * END
+ * ```
+ *
+ * @param post - Post to calculate priority for
+ * @param referenceDate - Optional reference date (defaults to now)
+ * @returns Priority timestamp in milliseconds (higher = more recent = higher priority)
+ *
+ * @example
+ * ```tsx
+ * import { getPostSortPriority } from 'lib/supabase'
+ *
+ * const priority = getPostSortPriority(post)
+ * // Recent sighting: returns sighting_date timestamp
+ * // Old sighting: returns created_at - 60 days (deprioritized)
+ * // No sighting: returns created_at timestamp
+ * ```
+ */
+export function getPostSortPriority(
+  post: DeprioritizablePost,
+  referenceDate: Date = new Date()
+): number {
+  const createdAt = new Date(post.created_at).getTime()
+  const now = referenceDate.getTime()
+  const thirtyDaysAgo = now - (DEPRIORITIZE_AFTER_DAYS * MS_PER_DAY)
+
+  // If no sighting_date, use created_at
+  if (!post.sighting_date) {
+    return createdAt
+  }
+
+  const sightingDate = new Date(post.sighting_date).getTime()
+
+  // If sighting_date is within 30 days, use it as priority
+  if (sightingDate >= thirtyDaysAgo) {
+    return sightingDate
+  }
+
+  // If sighting_date is older than 30 days, deprioritize by subtracting 60 days from created_at
+  const sixtyDaysPenalty = 60 * MS_PER_DAY
+  return createdAt - sixtyDaysPenalty
+}
+
+/**
+ * Sort posts with 30-day deprioritization
+ *
+ * Posts are sorted by their calculated priority:
+ * - Recent sightings (within 30 days) appear first, sorted by sighting_date
+ * - Posts without sighting_date appear in their natural created_at order
+ * - Old sightings (>30 days) are pushed to the bottom
+ *
+ * @param posts - Array of posts to sort
+ * @param ascending - Sort in ascending order (oldest first) if true, descending (newest first) if false
+ * @param referenceDate - Optional reference date for deprioritization calculation
+ * @returns New array of posts sorted by priority
+ *
+ * @example
+ * ```tsx
+ * import { sortPostsWithDeprioritization } from 'lib/supabase'
+ *
+ * // After fetching posts from Supabase
+ * const { data: posts } = await supabase.from('posts').select('*')
+ *
+ * // Apply 30-day deprioritization sorting
+ * const sortedPosts = sortPostsWithDeprioritization(posts)
+ * ```
+ */
+export function sortPostsWithDeprioritization<T extends DeprioritizablePost>(
+  posts: T[],
+  ascending: boolean = false,
+  referenceDate: Date = new Date()
+): T[] {
+  return [...posts].sort((a, b) => {
+    const priorityA = getPostSortPriority(a, referenceDate)
+    const priorityB = getPostSortPriority(b, referenceDate)
+
+    // For descending (newest first), higher priority comes first
+    // For ascending (oldest first), lower priority comes first
+    return ascending ? priorityA - priorityB : priorityB - priorityA
+  })
+}
+
+/**
+ * Check if a post should be deprioritized based on its sighting_date
+ *
+ * A post is deprioritized if:
+ * - It has a sighting_date that is older than 30 days
+ *
+ * Posts without sighting_date are NOT deprioritized (they use created_at ordering).
+ *
+ * @param post - Post to check
+ * @param referenceDate - Optional reference date (defaults to now)
+ * @returns true if the post should be deprioritized
+ *
+ * @example
+ * ```tsx
+ * import { isPostDeprioritized } from 'lib/supabase'
+ *
+ * if (isPostDeprioritized(post)) {
+ *   // Show visual indicator that this is an older sighting
+ * }
+ * ```
+ */
+export function isPostDeprioritized(
+  post: DeprioritizablePost,
+  referenceDate: Date = new Date()
+): boolean {
+  // Posts without sighting_date are not deprioritized
+  if (!post.sighting_date) {
+    return false
+  }
+
+  const sightingDate = new Date(post.sighting_date).getTime()
+  const now = referenceDate.getTime()
+  const thirtyDaysAgo = now - (DEPRIORITIZE_AFTER_DAYS * MS_PER_DAY)
+
+  return sightingDate < thirtyDaysAgo
+}

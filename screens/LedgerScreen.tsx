@@ -2,7 +2,7 @@
  * LedgerScreen
  *
  * Displays posts ("missed connections") for a specific location.
- * Posts are sorted by recency (most recent first).
+ * Posts are sorted by recency with 30-day deprioritization.
  *
  * Features:
  * - FlatList of posts filtered by location
@@ -12,6 +12,9 @@
  * - Loading and error states
  * - Match highlighting for posts that match the user's avatar
  * - Match count display in header when user has configured avatar
+ * - Time-based filtering (Last 24h, Last Week, Last Month, Any Time)
+ * - 30-day deprioritization: posts with sighting_date older than 30 days are pushed lower
+ * - Tutorial tooltip for ledger browsing onboarding
  *
  * @example
  * ```tsx
@@ -38,14 +41,16 @@ import { useRoute, useNavigation } from '@react-navigation/native'
 import Tooltip from 'react-native-walkthrough-tooltip'
 
 import { PostCard, createPostCardRenderer } from '../components/PostCard'
+import { PostFilters } from '../components/PostFilters'
 import { useTutorialState } from '../hooks/useTutorialState'
 import { selectionFeedback } from '../lib/haptics'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { EmptyLedger, ErrorState } from '../components/EmptyState'
 import { Button } from '../components/Button'
-import { supabase } from '../lib/supabase'
+import { supabase, sortPostsWithDeprioritization } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { getHiddenUserIds } from '../lib/moderation'
+import { TimeFilterOption, getFilterCutoffDate } from '../utils/dateTime'
 import type { LedgerRouteProp, MainStackNavigationProp } from '../navigation/types'
 import type { Post, PostWithDetails } from '../types/database'
 
@@ -112,6 +117,7 @@ export function LedgerScreen(): JSX.Element {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sortOrder] = useState<SortOption>('newest')
+  const [timeFilter, setTimeFilter] = useState<TimeFilterOption>('any_time')
 
   // ---------------------------------------------------------------------------
   // DATA FETCHING
@@ -121,6 +127,7 @@ export function LedgerScreen(): JSX.Element {
    * Fetch posts for the current location
    * Sorted by recency (newest first) by default
    * Filters out posts from blocked users
+   * Applies time-based filtering when selected
    */
   const fetchPosts = useCallback(async (isRefresh = false) => {
     if (!isRefresh) {
@@ -153,6 +160,17 @@ export function LedgerScreen(): JSX.Element {
         query = query.not('producer_id', 'in', `(${hiddenUserIds.join(',')})`)
       }
 
+      // Apply time-based filtering if a filter is selected (not 'any_time')
+      const cutoffDate = getFilterCutoffDate(timeFilter)
+      if (cutoffDate) {
+        // Filter by sighting_date if present, otherwise fall back to created_at
+        // This uses an OR condition: posts with sighting_date >= cutoff OR
+        // posts without sighting_date but created_at >= cutoff
+        query = query.or(
+          `sighting_date.gte.${cutoffDate.toISOString()},and(sighting_date.is.null,created_at.gte.${cutoffDate.toISOString()})`
+        )
+      }
+
       const { data, error: fetchError } = await query
 
       if (fetchError) {
@@ -160,14 +178,22 @@ export function LedgerScreen(): JSX.Element {
         return
       }
 
-      setPosts(data || [])
+      // Apply 30-day deprioritization sorting
+      // Posts with sighting_date within 30 days are prioritized
+      // Posts with sighting_date older than 30 days are pushed lower
+      // Posts without sighting_date use created_at for ordering
+      const sortedPosts = data
+        ? sortPostsWithDeprioritization(data, sortOrder === 'oldest')
+        : []
+
+      setPosts(sortedPosts)
     } catch {
       setError('An unexpected error occurred.')
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [locationId, sortOrder, userId])
+  }, [locationId, sortOrder, userId, timeFilter])
 
   // ---------------------------------------------------------------------------
   // EFFECTS
@@ -191,6 +217,13 @@ export function LedgerScreen(): JSX.Element {
     setRefreshing(true)
     fetchPosts(true)
   }, [fetchPosts])
+
+  /**
+   * Handle time filter change
+   */
+  const handleTimeFilterChange = useCallback((filter: TimeFilterOption) => {
+    setTimeFilter(filter)
+  }, [])
 
   /**
    * Handle post card press - navigate to post detail
@@ -261,7 +294,7 @@ export function LedgerScreen(): JSX.Element {
   )
 
   /**
-   * Render list header with location info
+   * Render list header with location info and time filter
    */
   const renderHeader = useCallback(() => {
     // Build subtitle text
@@ -275,12 +308,20 @@ export function LedgerScreen(): JSX.Element {
     }
 
     return (
-      <View style={styles.header} testID="ledger-header">
-        <Text style={styles.headerTitle}>{locationName}</Text>
-        <Text style={styles.headerSubtitle}>{subtitleText}</Text>
+      <View testID="ledger-header">
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>{locationName}</Text>
+          <Text style={styles.headerSubtitle}>{subtitleText}</Text>
+        </View>
+        <PostFilters
+          selectedTimeFilter={timeFilter}
+          onTimeFilterChange={handleTimeFilterChange}
+          disabled={loading}
+          testID="ledger-time-filter"
+        />
       </View>
     )
-  }, [locationName, posts.length])
+  }, [locationName, posts.length, timeFilter, handleTimeFilterChange, loading])
 
   /**
    * Render empty state when no posts exist

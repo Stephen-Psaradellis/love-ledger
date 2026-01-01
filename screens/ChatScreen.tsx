@@ -18,6 +18,8 @@
  * - User blocking via header menu or message long-press
  * - Content reporting via header menu (report user) or message long-press (report message)
  * - Haptic feedback on key interactions
+ * - Photo sharing with match (share private photos in chat)
+ * - Display of photos shared by match
  *
  * Architecture:
  * This component orchestrates chat functionality using:
@@ -45,6 +47,9 @@ import {
   Alert,
   ActivityIndicator,
   StatusBar,
+  Modal,
+  ScrollView,
+  Image,
 } from 'react-native'
 import { useRoute, useNavigation } from '@react-navigation/native'
 import Tooltip from 'react-native-walkthrough-tooltip'
@@ -54,7 +59,13 @@ import {
   errorFeedback,
   warningFeedback,
   notificationFeedback,
+  selectionFeedback,
 } from '../lib/haptics'
+import { usePhotoSharing } from '../hooks/usePhotoSharing'
+import { useProfilePhotos } from '../hooks/useProfilePhotos'
+import { useTutorialState } from '../hooks/useTutorialState'
+import type { SharedPhotoWithUrl } from '../lib/photoSharing'
+import type { ProfilePhotoWithUrl } from '../lib/profilePhotos'
 import {
   ChatBubble,
   DateSeparator,
@@ -74,7 +85,6 @@ import {
   CONVERSATION_ERRORS,
 } from '../lib/conversations'
 import { blockUser, MODERATION_ERRORS } from '../lib/moderation'
-import { useTutorialState } from '../hooks/useTutorialState'
 import type { ChatRouteProp, MainStackNavigationProp } from '../navigation/types'
 import type { Message, Conversation, MessageInsert } from '../types/database'
 import type { RealtimeChannel, RealtimePostgresInsertPayload } from '@supabase/supabase-js'
@@ -90,6 +100,19 @@ interface MessageListItem {
   type: 'message' | 'separator'
   id: string
   data: Message | string
+}
+
+/**
+ * Props for SharePhotoModal component
+ */
+interface SharePhotoModalProps {
+  visible: boolean
+  onClose: () => void
+  approvedPhotos: ProfilePhotoWithUrl[]
+  photosLoading: boolean
+  isPhotoShared: (photoId: string) => boolean
+  onSharePhoto: (photoId: string) => Promise<void>
+  sharing: boolean
 }
 
 // ============================================================================
@@ -359,6 +382,172 @@ function useBlockUser() {
 }
 
 // ============================================================================
+// PHOTO SHARING COMPONENTS
+// ============================================================================
+
+/**
+ * Modal for selecting and sharing photos with a match
+ */
+function SharePhotoModal({
+  visible,
+  onClose,
+  approvedPhotos,
+  photosLoading,
+  isPhotoShared,
+  onSharePhoto,
+  sharing,
+}: SharePhotoModalProps): JSX.Element {
+  const availablePhotos = approvedPhotos.filter(photo => !isPhotoShared(photo.id))
+  const sharedPhotos = approvedPhotos.filter(photo => isPhotoShared(photo.id))
+
+  const handlePhotoPress = useCallback(async (photoId: string) => {
+    selectionFeedback()
+    await onSharePhoto(photoId)
+  }, [onSharePhoto])
+
+  const handleClose = useCallback(() => {
+    if (!sharing) {
+      onClose()
+    }
+  }, [sharing, onClose])
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={handleClose}
+      testID="share-photo-modal"
+    >
+      <KeyboardAvoidingView
+        style={sharePhotoStyles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableOpacity
+          style={sharePhotoStyles.overlayTouchable}
+          activeOpacity={1}
+          onPress={handleClose}
+        >
+          <TouchableOpacity
+            style={sharePhotoStyles.modalContainer}
+            activeOpacity={1}
+            onPress={() => {}}
+          >
+            {/* Header */}
+            <View style={sharePhotoStyles.header}>
+              <Text style={sharePhotoStyles.title}>Share a Photo</Text>
+              <TouchableOpacity
+                onPress={handleClose}
+                disabled={sharing}
+                style={sharePhotoStyles.closeButton}
+                testID="share-photo-modal-close"
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+              >
+                <Text style={sharePhotoStyles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Content */}
+            <ScrollView
+              style={sharePhotoStyles.content}
+              contentContainerStyle={sharePhotoStyles.contentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Loading state */}
+              {photosLoading && (
+                <View style={sharePhotoStyles.loadingContainer}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                  <Text style={sharePhotoStyles.loadingText}>Loading photos...</Text>
+                </View>
+              )}
+
+              {/* Empty state - no approved photos */}
+              {!photosLoading && approvedPhotos.length === 0 && (
+                <View style={sharePhotoStyles.emptyContainer}>
+                  <Text style={sharePhotoStyles.emptyTitle}>No photos available</Text>
+                  <Text style={sharePhotoStyles.emptyText}>
+                    Upload and verify photos in your profile to share them with your matches.
+                  </Text>
+                </View>
+              )}
+
+              {/* All photos shared state */}
+              {!photosLoading && approvedPhotos.length > 0 && availablePhotos.length === 0 && (
+                <View style={sharePhotoStyles.emptyContainer}>
+                  <Text style={sharePhotoStyles.emptyTitle}>All photos shared</Text>
+                  <Text style={sharePhotoStyles.emptyText}>
+                    You have already shared all your approved photos with this match.
+                  </Text>
+                </View>
+              )}
+
+              {/* Available photos section */}
+              {!photosLoading && availablePhotos.length > 0 && (
+                <>
+                  <Text style={sharePhotoStyles.instructions}>
+                    Tap a photo to share it privately with this match.
+                  </Text>
+                  <Text style={sharePhotoStyles.sectionTitle}>Available to Share</Text>
+                  <View style={sharePhotoStyles.photoGrid}>
+                    {availablePhotos.map((photo) => (
+                      <TouchableOpacity
+                        key={photo.id}
+                        style={sharePhotoStyles.photoTile}
+                        onPress={() => handlePhotoPress(photo.id)}
+                        disabled={sharing}
+                        testID={`photo-tile-${photo.id}`}
+                        activeOpacity={0.7}
+                      >
+                        <Image
+                          source={{ uri: photo.url }}
+                          style={sharePhotoStyles.photoImage}
+                          testID={`photo-image-${photo.id}`}
+                        />
+                        {sharing && (
+                          <View style={sharePhotoStyles.sharingOverlay}>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              {/* Shared photos section */}
+              {!photosLoading && sharedPhotos.length > 0 && (
+                <>
+                  <Text style={sharePhotoStyles.sectionTitle}>Already Shared</Text>
+                  <View style={sharePhotoStyles.photoGrid}>
+                    {sharedPhotos.map((photo) => (
+                      <View
+                        key={photo.id}
+                        style={[sharePhotoStyles.photoTile, sharePhotoStyles.sharedPhotoTile]}
+                        testID={`shared-photo-tile-${photo.id}`}
+                      >
+                        <Image
+                          source={{ uri: photo.url }}
+                          style={sharePhotoStyles.photoImage}
+                          testID={`shared-photo-image-${photo.id}`}
+                        />
+                        <View style={sharePhotoStyles.sharedBadge}>
+                          <Text style={sharePhotoStyles.sharedBadgeText}>✓</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+    </Modal>
+  )
+}
+
+// ============================================================================
 // COMPONENT
 // ============================================================================
 
@@ -391,6 +580,7 @@ export function ChatScreen(): JSX.Element {
   const [reportModalVisible, setReportModalVisible] = useState(false)
   const [messageToReport, setMessageToReport] = useState<Message | null>(null)
   const [userReportModalVisible, setUserReportModalVisible] = useState(false)
+  const [sharePhotoModalVisible, setSharePhotoModalVisible] = useState(false)
 
   // Custom hooks
   const {
@@ -408,6 +598,19 @@ export function ChatScreen(): JSX.Element {
   )
 
   const { handleBlockUser: performBlockUser } = useBlockUser()
+
+  const {
+    sharedPhotos,
+    sharing: sharingPhoto,
+    sharePhoto,
+    loadSharedPhotos,
+  } = usePhotoSharing(conversationId, userId || '')
+
+  const {
+    photos: approvedPhotos,
+    loading: photosLoading,
+    loadProfilePhotos,
+  } = useProfilePhotos(userId || '')
 
   // ---------------------------------------------------------------------------
   // COMPUTED VALUES
@@ -495,10 +698,21 @@ export function ChatScreen(): JSX.Element {
     const conv = await fetchConversation()
     if (conv) {
       await fetchMessages()
+      await loadSharedPhotos()
+      await loadProfilePhotos()
     } else {
       setConversationLoading(false)
     }
-  }, [fetchConversation, fetchMessages])
+  }, [fetchConversation, fetchMessages, loadSharedPhotos, loadProfilePhotos])
+
+  // ---------------------------------------------------------------------------
+  // EFFECTS
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    setConversationLoading(true)
+    loadData()
+  }, [loadData])
 
   // ---------------------------------------------------------------------------
   // EVENT HANDLERS
@@ -511,18 +725,9 @@ export function ChatScreen(): JSX.Element {
     setMessageText('')
 
     await sendMessage(messageContent, (newMessage) => {
-      // Message successfully sent
+      // Message will be added via realtime subscription
     })
   }, [canSend, messageText, sendMessage])
-
-  const handleLoadMore = useCallback(() => {
-    if (hasMoreMessages && !loadingMore) {
-      const lastMessage = messages[messages.length - 1]
-      if (lastMessage) {
-        fetchMessages(false, lastMessage.id)
-      }
-    }
-  }, [hasMoreMessages, loadingMore, messages, fetchMessages])
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -530,290 +735,243 @@ export function ChatScreen(): JSX.Element {
     setRefreshing(false)
   }, [fetchMessages])
 
-  const handleBlockUser = useCallback(async () => {
-    if (!userId || !otherUserId) return
-    const success = await performBlockUser(userId, otherUserId)
-    if (success) {
-      navigation.goBack()
+  const handleLoadMore = useCallback(() => {
+    if (hasMoreMessages && !loadingMore && !messagesLoading) {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage) {
+        fetchMessages(false, lastMessage.id)
+      }
     }
-  }, [performBlockUser, navigation, userId, otherUserId])
-
-  const handleReportUser = useCallback(() => {
-    if (!otherUserId) return
-    setUserReportModalVisible(true)
-  }, [otherUserId])
-
-  const handleCloseUserReportModal = useCallback(() => {
-    setUserReportModalVisible(false)
-  }, [])
+  }, [hasMoreMessages, loadingMore, messagesLoading, messages, fetchMessages])
 
   const handleReportMessage = useCallback((message: Message) => {
     setMessageToReport(message)
     setReportModalVisible(true)
   }, [])
 
-  const handleCloseReportModal = useCallback(() => {
-    setReportModalVisible(false)
-    setMessageToReport(null)
+  const handleReportUser = useCallback(() => {
+    setUserReportModalVisible(true)
   }, [])
 
-  const handleUserReportSuccess = useCallback(() => {
-    successFeedback()
-    handleCloseUserReportModal()
-    Alert.alert(
-      'Report Submitted',
-      'Thank you for reporting this user. We will review it shortly.'
-    )
-  }, [handleCloseUserReportModal])
+  const handleBlockUser = useCallback(async () => {
+    if (!otherUserId) return
 
-  const handleMessageReportSuccess = useCallback(() => {
-    successFeedback()
-    handleCloseReportModal()
-    Alert.alert(
-      'Report Submitted',
-      'Thank you for reporting this message. We will review it shortly.'
-    )
-  }, [handleCloseReportModal])
-
-  // ---------------------------------------------------------------------------
-  // EFFECTS
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  useEffect(() => {
-    if (userRole) {
-      const otherRole = userRole === 'producer' ? 'Consumer' : 'Producer'
-      navigation.setOptions({
-        headerTitle: `Chat with ${otherRole}`,
-        // eslint-disable-next-line react/no-unstable-nested-components
-        headerRight: () => (
-          <TouchableOpacity
-            onPress={() => {
-              notificationFeedback('success')
-              Alert.alert(
-                'Chat Options',
-                'What would you like to do?',
-                [
-                  {
-                    text: 'Report User',
-                    style: 'destructive',
-                    onPress: handleReportUser,
-                  },
-                  {
-                    text: 'Block User',
-                    style: 'destructive',
-                    onPress: handleBlockUser,
-                  },
-                  { text: 'Cancel', style: 'cancel' },
-                ]
-              )
-            }}
-            style={{ marginRight: 8, padding: 8 }}
-            testID="chat-options-button"
-          >
-            <Text style={{ fontSize: 20 }}>⋮</Text>
-          </TouchableOpacity>
-        ),
-      })
+    const blocked = await performBlockUser(userId || '', otherUserId)
+    if (blocked) {
+      navigation.goBack()
     }
-  }, [userRole, navigation, handleBlockUser, handleReportUser])
+  }, [otherUserId, userId, performBlockUser, navigation])
+
+  const handleSharePhoto = useCallback(async (photoId: string) => {
+    try {
+      await sharePhoto(otherUserId || '', photoId)
+      successFeedback()
+    } catch (error) {
+      errorFeedback()
+      Alert.alert('Error', 'Failed to share photo. Please try again.')
+    }
+  }, [otherUserId, sharePhoto])
+
+  const isPhotoShared = useCallback((photoId: string) => {
+    return sharedPhotos.some(sp => sp.photo_id === photoId)
+  }, [sharedPhotos])
 
   // ---------------------------------------------------------------------------
   // RENDER HELPERS
   // ---------------------------------------------------------------------------
 
-  /**
-   * Render tutorial tooltip content for messaging onboarding
-   */
-  const renderTutorialContent = (): React.ReactNode => (
-    <View style={tooltipStyles.container}>
-      <Text style={tooltipStyles.title}>Start a Conversation</Text>
-      <Text style={tooltipStyles.description}>
-        Chat anonymously with your connection. Send messages using the input below.
-        Your identity remains private until you choose to reveal it.
-      </Text>
-      <TouchableOpacity
-        style={tooltipStyles.button}
-        onPress={tutorial.markComplete}
-        testID="tutorial-dismiss-button"
-      >
-        <Text style={tooltipStyles.buttonText}>Got it</Text>
-      </TouchableOpacity>
-    </View>
+  const renderMessage = useCallback(
+    ({ item }: { item: MessageListItem }) => {
+      if (item.type === 'separator') {
+        return <DateSeparator timestamp={item.data as string} />
+      }
+
+      const message = item.data as Message
+      const isOwn = message.sender_id === userId
+      const position = getBubblePosition(
+        message,
+        messages,
+        userId || ''
+      )
+
+      return (
+        <ChatBubble
+          message={message}
+          isOwn={isOwn}
+          position={position}
+          onLongPress={() => {
+            if (isOwn) {
+              handleReportMessage(message)
+            } else {
+              Alert.alert('Message', message.content, [
+                {
+                  text: 'Report Message',
+                  onPress: () => handleReportMessage(message),
+                },
+                { text: 'Cancel', style: 'cancel' },
+              ])
+            }
+          }}
+        />
+      )
+    },
+    [userId, messages, handleReportMessage]
   )
+
+  const renderHeader = useCallback(() => {
+    if (conversationLoading) {
+      return (
+        <View style={styles.headerContainer}>
+          <LoadingSpinner />
+        </View>
+      )
+    }
+
+    if (conversationError) {
+      return (
+        <View style={styles.headerContainer}>
+          <ErrorState message={conversationError} />
+        </View>
+      )
+    }
+
+    return null
+  }, [conversationLoading, conversationError])
+
+  const renderEmpty = useCallback(() => {
+    if (!conversationLoading && !messagesLoading && messages.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <EmptyState
+            title="Start the Conversation"
+            description="Send a message to begin chatting with this user"
+          />
+        </View>
+      )
+    }
+    return null
+  }, [conversationLoading, messagesLoading, messages])
+
+  const renderInput = useCallback(() => {
+    if (conversationError || !conversation?.status) {
+      return null
+    }
+
+    return (
+      <Tooltip
+        isVisible={tutorial.showMessageInputTutorial}
+        content={
+          <View>
+            <Text style={{ color: 'white', fontSize: 14 }}>
+              Type your message here
+            </Text>
+          </View>
+        }
+        placement="top"
+        onClose={() => tutorial.dismissMessageInputTutorial()}
+      >
+        <View style={styles.inputContainer}>
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            placeholder="Type a message..."
+            placeholderTextColor={COLORS.inputPlaceholder}
+            value={messageText}
+            onChangeText={setMessageText}
+            editable={!sending && conversation?.status === 'active'}
+            maxLength={MAX_MESSAGE_LENGTH}
+            multiline
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              { backgroundColor: canSend ? COLORS.sendButtonActive : COLORS.sendButtonDisabled },
+            ]}
+            onPress={handleSendMessage}
+            disabled={!canSend}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.photoButton}
+            onPress={() => setSharePhotoModalVisible(true)}
+            disabled={!conversation || conversation.status !== 'active'}
+          >
+            <Text style={styles.photoButtonText}>📷</Text>
+          </TouchableOpacity>
+        </View>
+      </Tooltip>
+    )
+  }, [
+    conversationError,
+    conversation,
+    messageText,
+    canSend,
+    sending,
+    handleSendMessage,
+    tutorial,
+  ])
 
   // ---------------------------------------------------------------------------
   // RENDER
   // ---------------------------------------------------------------------------
 
-  if (conversationLoading && messagesLoading) {
-    return (
-      <View style={styles.centerContainer}>
-        <LoadingSpinner />
-      </View>
-    )
-  }
-
-  if (conversationError) {
-    return (
-      <View style={styles.centerContainer}>
-        <ErrorState
-          error={conversationError}
-          onRetry={loadData}
-        />
-      </View>
-    )
-  }
-
-  if (!conversation) {
-    return (
-      <View style={styles.centerContainer}>
-        <ErrorState
-          error="Conversation not found"
-          onRetry={loadData}
-        />
-      </View>
-    )
-  }
-
   return (
-    <Tooltip
-      isVisible={tutorial.isVisible}
-      content={renderTutorialContent()}
-      placement="bottom"
-      onClose={tutorial.markComplete}
-      closeOnChildInteraction={false}
-      allowChildInteraction={true}
-      topAdjustment={Platform.OS === 'android' ? -(StatusBar.currentHeight ?? 0) : 0}
-    >
-      <View style={styles.container} testID="chat-screen">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        >
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+
+      {messagesLoading && messages.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner />
+        </View>
+      ) : (
+        <>
+          {renderHeader()}
+
           <FlatList
             ref={flatListRef}
             data={messageListItems}
-            renderItem={({ item }) => {
-              if (item.type === 'separator') {
-                return <DateSeparator timestamp={item.data as string} />
-              }
-
-              const message = item.data as Message
-              const messageIndex = messages.findIndex(m => m.id === message.id)
-              const position = getBubblePosition(
-                messages,
-                messageIndex,
-                userId || ''
-              )
-
-              return (
-                <ChatBubble
-                  message={message}
-                  position={position}
-                  isOwn={message.sender_id === userId}
-                  onLongPress={() => {
-                    notificationFeedback('success')
-                    if (message.sender_id === userId) {
-                      // Own message - can only report
-                      handleReportMessage(message)
-                    } else {
-                      // Other user's message - can report or block
-                      Alert.alert(
-                        'Message Options',
-                        'What would you like to do?',
-                        [
-                          {
-                            text: 'Report Message',
-                            style: 'destructive',
-                            onPress: () => handleReportMessage(message),
-                          },
-                          {
-                            text: 'Block User',
-                            style: 'destructive',
-                            onPress: handleBlockUser,
-                          },
-                          { text: 'Cancel', style: 'cancel' },
-                        ]
-                      )
-                    }
-                  }}
-                />
-              )
-            }}
+            renderItem={renderMessage}
             keyExtractor={(item) => item.id}
-            inverted
             onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.1}
-            ListEmptyComponent={
-              messagesLoading ? (
-                <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
-              ) : (
-                <EmptyState title="No messages yet" message="Start the conversation!" />
-              )
-            }
+            onEndReachedThreshold={0.5}
+            ListEmptyComponent={renderEmpty}
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            scrollIndicatorInsets={{ right: 1 }}
+            scrollEnabled
+            nestedScrollEnabled
           />
 
-          {messagesError && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{messagesError}</Text>
-            </View>
-          )}
+          {renderInput()}
+        </>
+      )}
 
-          <View style={styles.inputContainer}>
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              placeholder="Type a message..."
-              placeholderTextColor={COLORS.inputPlaceholder}
-              value={messageText}
-              onChangeText={setMessageText}
-              multiline
-              maxLength={MAX_MESSAGE_LENGTH}
-              editable={!sending && conversation.status === 'active'}
-              testID="message-input"
-            />
-            <TouchableOpacity
-              style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
-              onPress={handleSendMessage}
-              disabled={!canSend}
-              testID="send-button"
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.sendButtonText}>Send</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+      {/* Modals */}
+      <ReportMessageModal
+        visible={reportModalVisible}
+        message={messageToReport}
+        onClose={() => {
+          setReportModalVisible(false)
+          setMessageToReport(null)
+        }}
+      />
 
-        {otherUserId && (
-          <ReportUserModal
-            visible={userReportModalVisible}
-            onClose={handleCloseUserReportModal}
-            reportedId={otherUserId}
-            onSuccess={handleUserReportSuccess}
-          />
-        )}
+      <ReportUserModal
+        visible={userReportModalVisible}
+        onClose={() => setUserReportModalVisible(false)}
+        onBlock={handleBlockUser}
+      />
 
-        {messageToReport && (
-          <ReportMessageModal
-            visible={reportModalVisible}
-            onClose={handleCloseReportModal}
-            reportedId={messageToReport.id}
-            onSuccess={handleMessageReportSuccess}
-          />
-        )}
-      </View>
-    </Tooltip>
+      <SharePhotoModal
+        visible={sharePhotoModalVisible}
+        onClose={() => setSharePhotoModalVisible(false)}
+        approvedPhotos={approvedPhotos}
+        photosLoading={photosLoading}
+        isPhotoShared={isPhotoShared}
+        onSharePhoto={handleSharePhoto}
+        sharing={sharingPhoto}
+      />
+    </View>
   )
 }
 
@@ -826,94 +984,180 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  centerContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+  },
+  headerContainer: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   inputContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    padding: 12,
     backgroundColor: COLORS.inputBackground,
     borderTopWidth: 1,
     borderTopColor: COLORS.inputBorder,
-    alignItems: 'flex-end',
+    gap: 8,
   },
   input: {
     flex: 1,
     backgroundColor: COLORS.background,
-    color: COLORS.inputText,
-    fontSize: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 8,
     borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    color: COLORS.inputText,
     maxHeight: 100,
   },
   sendButton: {
-    backgroundColor: COLORS.sendButtonActive,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 40,
-  },
-  sendButtonDisabled: {
-    backgroundColor: COLORS.sendButtonDisabled,
+    paddingHorizontal: 20,
+    borderRadius: 20,
   },
   sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: 'white',
     fontWeight: '600',
-  },
-  errorBanner: {
-    backgroundColor: COLORS.error,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  errorBannerText: {
-    color: '#FFFFFF',
     fontSize: 14,
-    textAlign: 'center',
+  },
+  photoButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  photoButtonText: {
+    fontSize: 20,
   },
 })
 
-/**
- * Styles for tutorial tooltip content
- */
-const tooltipStyles = StyleSheet.create({
-  container: {
-    padding: 16,
-    maxWidth: 280,
+const sharePhotoStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  overlayTouchable: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    maxHeight: '80%',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.inputBorder,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: COLORS.inputText,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: 24,
+    color: COLORS.textSecondary,
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 16,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  emptyContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.inputText,
     marginBottom: 8,
   },
-  description: {
+  emptyText: {
     fontSize: 14,
-    color: '#4B5563',
-    lineHeight: 20,
-    marginBottom: 16,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
-  button: {
-    backgroundColor: '#EC4899',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+  instructions: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.inputText,
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  photoTile: {
+    width: '48%',
+    aspectRatio: 1,
     borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: COLORS.inputBorder,
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  sharedPhotoTile: {
+    opacity: 0.6,
+  },
+  sharingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  sharedBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sharedBadgeText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
 })

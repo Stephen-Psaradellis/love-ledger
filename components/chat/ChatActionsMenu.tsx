@@ -4,6 +4,7 @@
  * ChatActionsMenu Component
  *
  * An accessible dropdown/bottom sheet menu for chat actions:
+ * - Share photo option (optional) - for sharing private photos with match
  * - Block user option
  * - Report user option
  * - Mute notifications option (optional)
@@ -21,6 +22,10 @@
  * <ChatActionsMenu
  *   isOpen={isActionsMenuOpen}
  *   onClose={() => setIsActionsMenuOpen(false)}
+ *   onSharePhoto={() => {
+ *     setIsActionsMenuOpen(false)
+ *     setIsSharePhotoModalOpen(true)
+ *   }}
  *   onBlockUser={() => {
  *     setIsActionsMenuOpen(false)
  *     setIsBlockModalOpen(true)
@@ -41,6 +46,8 @@ import styles from './styles/ChatScreen.module.css'
  * Extended props for ChatActionsMenu with optional actions
  */
 interface ExtendedChatActionsMenuProps extends ChatActionsMenuProps {
+  /** Callback when share photo is clicked */
+  onSharePhoto?: () => void
   /** Callback when mute notifications is clicked */
   onMuteNotifications?: () => void
   /** Whether notifications are currently muted */
@@ -159,6 +166,29 @@ function ClearIcon() {
 }
 
 /**
+ * Image icon for share photo action
+ */
+function SharePhotoIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  )
+}
+
+/**
  * Close X icon for the sheet
  */
 function CloseIcon() {
@@ -199,6 +229,7 @@ interface MenuAction {
  * @param onClose - Callback when menu is closed
  * @param onBlockUser - Callback to open block user modal
  * @param onReportUser - Callback to open report user modal
+ * @param onSharePhoto - Optional callback to open share photo modal
  * @param onMuteNotifications - Optional callback to toggle notification mute
  * @param isMuted - Whether notifications are currently muted
  * @param onClearConversation - Optional callback to clear conversation
@@ -208,6 +239,7 @@ function ChatActionsMenuComponent({
   onClose,
   onBlockUser,
   onReportUser,
+  onSharePhoto,
   onMuteNotifications,
   isMuted = false,
   onClearConversation,
@@ -217,6 +249,21 @@ function ChatActionsMenuComponent({
 
   // Build menu actions list
   const actions: MenuAction[] = [
+    // Share photo (if handler provided)
+    ...(onSharePhoto
+      ? [
+          {
+            id: 'share-photo',
+            label: 'Share Photo',
+            icon: <SharePhotoIcon />,
+            onClick: () => {
+              onSharePhoto()
+              onClose()
+            },
+            variant: 'default' as const,
+          },
+        ]
+      : []),
     // Mute notifications (if handler provided)
     ...(onMuteNotifications
       ? [

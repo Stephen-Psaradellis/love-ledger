@@ -69,9 +69,11 @@ import {
   Alert,
 } from 'react-native'
 import { ReportPostModal } from './ReportModal'
-import { MediumAvatarPreview } from './ReadyPlayerMe'
+import { MediumAvatarPreview } from './AvatarPreview'
 import { VerifiedBadge } from './VerifiedBadge'
+import { formatSightingTime, parseDate } from '../utils/dateTime'
 import type { Post, PostWithDetails, Location, Profile } from '../types/database'
+import type { AvatarConfig } from '../types/avatar'
 
 // ============================================================================
 // TYPES
@@ -362,6 +364,13 @@ export const PostCard = memo(function PostCard({
   // Format timestamp
   const timeAgo = formatRelativeTime(post.created_at)
 
+  // Format sighting time if available
+  const sightingDate = post.sighting_date ? parseDate(post.sighting_date) : null
+  const hasSightingTime = sightingDate !== null && post.time_granularity !== null
+  const formattedSightingTime = hasSightingTime && sightingDate
+    ? formatSightingTime(sightingDate, post.time_granularity!)
+    : null
+
   // Show match indicator if score is provided
   const showMatchIndicator = matchScore !== undefined
 
@@ -399,7 +408,7 @@ export const PostCard = memo(function PostCard({
     }
   }, [onLongPress, enableReporting, post])
 
-  // Handle closing report modal
+// Handle closing report modal
   const handleCloseReportModal = useCallback(() => {
     setReportModalVisible(false)
   }, [])
@@ -433,7 +442,7 @@ export const PostCard = memo(function PostCard({
       {/* Avatar Section */}
       <View style={styles.avatarContainer} testID={`${testID}-avatar`}>
         <MediumAvatarPreview
-          avatarId={post.target_rpm_avatar?.avatarId ?? ''}
+          config={post.target_avatar as AvatarConfig}
           testID={`${testID}-avatar-preview`}
         />
         {/* Match Badge */}
@@ -462,6 +471,16 @@ export const PostCard = memo(function PostCard({
         >
           {notePreview}
         </Text>
+
+        {/* Sighting Time - displayed prominently when available */}
+        {hasSightingTime && formattedSightingTime && (
+          <View style={styles.sightingTimeContainer} testID={`${testID}-sighting-time`}>
+            <Text style={styles.sightingTimeIcon}>🕐</Text>
+            <Text style={styles.sightingTimeText}>
+              Seen {formattedSightingTime}
+            </Text>
+          </View>
+        )}
 
         {/* Meta Information */}
         <View style={styles.metaContainer}>
@@ -533,80 +552,7 @@ export const PostCard = memo(function PostCard({
 export const CompactPostCard = memo(function CompactPostCard(
   props: Omit<PostCardProps, 'compact'>
 ) {
-  return (
-    <PostCard
-      {...props}
-      compact={true}
-      testID={props.testID ?? 'post-card-compact'}
-    />
-  )
-})
-
-/**
- * PostCard without location display (for location-specific ledgers)
- */
-export const PostCardNoLocation = memo(function PostCardNoLocation(
-  props: Omit<PostCardProps, 'showLocation'>
-) {
-  return (
-    <PostCard
-      {...props}
-      showLocation={false}
-      testID={props.testID ?? 'post-card-no-location'}
-    />
-  )
-})
-
-/**
- * PostCard with match highlighting enabled
- */
-export const MatchablePostCard = memo(function MatchablePostCard(
-  props: PostCardProps & { matchScore: number; isMatch: boolean }
-) {
-  return (
-    <PostCard
-      {...props}
-      testID={props.testID ?? 'post-card-matchable'}
-    />
-  )
-})
-
-// ============================================================================
-// LIST ITEM COMPONENT
-// ============================================================================
-
-/**
- * Props for PostCardListItem
- */
-export interface PostCardListItemProps extends PostCardProps {
-  /**
-   * Index in the list (for alternating backgrounds or separators)
-   */
-  index?: number
-
-  /**
-   * Whether to show a separator below the item
-   * @default true
-   */
-  showSeparator?: boolean
-}
-
-/**
- * PostCard list item with optional separator
- *
- * Useful for rendering PostCard in FlatList with separators between items
- */
-export const PostCardListItem = memo(function PostCardListItem({
-  index = 0,
-  showSeparator = true,
-  ...props
-}: PostCardListItemProps) {
-  return (
-    <View>
-      <PostCard {...props} />
-      {showSeparator && <View style={styles.separator} />}
-    </View>
-  )
+  return <PostCard {...props} compact={true} />
 })
 
 // ============================================================================
@@ -614,6 +560,7 @@ export const PostCardListItem = memo(function PostCardListItem({
 // ============================================================================
 
 const styles = StyleSheet.create({
+  // Container
   container: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -622,20 +569,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-
   containerCompact: {
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
 
+  // Avatar
   avatarContainer: {
     position: 'relative',
     marginRight: 12,
+    marginTop: 4,
   },
-
   matchBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: -6,
+    right: -6,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -644,17 +592,19 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.background,
   },
-
   matchBadgeText: {
-    color: COLORS.background,
     fontSize: 10,
     fontWeight: '700',
+    color: COLORS.background,
   },
 
+  // Content
   contentContainer: {
     flex: 1,
+    justifyContent: 'center',
   },
 
+  // Note
   noteText: {
     fontSize: 14,
     lineHeight: 20,
@@ -662,62 +612,69 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '500',
   },
-
   noteTextCompact: {
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 6,
   },
 
-  metaContainer: {
+  // Sighting Time
+  sightingTimeContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 6,
+    backgroundColor: '#F8F8F8',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  sightingTimeIcon: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  sightingTimeText: {
+    fontSize: 12,
+    color: COLORS.textPrimary,
+    fontWeight: '500',
   },
 
+  // Meta Information
+  metaContainer: {
+    flexDirection: 'column',
+    gap: 4,
+  },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
-
   locationIcon: {
     fontSize: 12,
     marginRight: 4,
   },
-
   locationText: {
     fontSize: 12,
     color: COLORS.textSecondary,
     flex: 1,
   },
-
   timestampContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
-
   timestampText: {
     fontSize: 12,
     color: COLORS.textSecondary,
   },
 
+  // Match Indicator
   matchIndicator: {
     marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
-
   matchIndicatorText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-
-  separator: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginHorizontal: 16,
   },
 })

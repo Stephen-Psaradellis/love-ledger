@@ -73,3 +73,9 @@ export {
   type UseTutorialStateOptions,
   type UseTutorialStateResult,
 } from './useTutorialState'
+
+// Photo sharing hook
+export {
+  usePhotoSharing,
+  type UsePhotoSharingResult,
+} from './usePhotoSharing'

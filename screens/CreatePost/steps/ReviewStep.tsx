@@ -1,8 +1,8 @@
 /**
  * ReviewStep Component
  *
- * Fourth and final step in the CreatePost wizard flow. Displays a summary
- * of all the form data collected (avatar, note, location) with
+ * Final step in the CreatePost wizard flow. Displays a summary
+ * of all the form data collected (avatar, note, location, time) with
  * edit buttons to go back and modify each section. Includes the submit
  * action to create the missed connection post.
  *
@@ -10,6 +10,7 @@
  * - Avatar preview with edit button
  * - Note preview with edit button
  * - Location preview with edit button
+ * - Time/date preview with edit button (optional field)
  * - Submit button for post creation
  * - Loading state during submission
  *
@@ -19,6 +20,8 @@
  *   avatar={formData.targetAvatar}
  *   note={formData.note}
  *   location={formData.location}
+ *   sightingDate={formData.sightingDate}
+ *   timeGranularity={formData.timeGranularity}
  *   isSubmitting={isSubmitting}
  *   isFormValid={isFormValid}
  *   onSubmit={handleSubmit}
@@ -46,6 +49,8 @@ import { COLORS, sharedStyles } from '../styles'
 import type { LocationItem } from '../../../components/LocationPicker'
 import type { CreatePostStep } from '../types'
 import { getPhotoById, type ProfilePhotoWithUrl } from '../../../lib/profilePhotos'
+import type { TimeGranularity } from '../../../types/database'
+import { formatSightingTime } from '../../../utils/dateTime'
 
 // ============================================================================
 // TYPES
@@ -74,6 +79,17 @@ export interface ReviewStepProps {
    * The selected location for the missed connection
    */
   location: LocationItem | null
+
+  /**
+   * The sighting date/time (optional)
+   */
+  sightingDate: Date | null
+
+  /**
+   * The time granularity for the sighting (optional)
+   * 'specific' for exact time, or 'morning'/'afternoon'/'evening' for approximate
+   */
+  timeGranularity: TimeGranularity | null
 
   /**
    * Whether the form is currently being submitted
@@ -120,13 +136,16 @@ export interface ReviewStepProps {
  * 2. Avatar preview with edit button
  * 3. Note preview with edit button
  * 4. Location preview with edit button
- * 5. Submit and Go Back buttons
+ * 5. Time/date preview with edit button (if specified)
+ * 6. Submit and Go Back buttons
  */
 export const ReviewStep = memo(function ReviewStep({
   selectedPhotoId,
   avatar,
   note,
   location,
+  sightingDate,
+  timeGranularity,
   isSubmitting,
   isFormValid,
   onSubmit,
@@ -261,6 +280,28 @@ export const ReviewStep = memo(function ReviewStep({
               <Text style={styles.reviewLocationAddress}>{location.address}</Text>
             )}
           </View>
+        </View>
+      </View>
+
+      {/* Time preview */}
+      <View style={styles.reviewSection}>
+        <View style={styles.reviewSectionHeader}>
+          <Text style={styles.reviewSectionTitle}>When You Saw Them</Text>
+          <TouchableOpacity
+            style={sharedStyles.editButton}
+            onPress={() => goToStep('time')}
+            testID={`${testID}-review-edit-time`}
+          >
+            <Text style={sharedStyles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.reviewTimeContainer}>
+          <Text style={styles.reviewTimeIcon}>🕐</Text>
+          <Text style={styles.reviewTimeText}>
+            {sightingDate && timeGranularity
+              ? formatSightingTime(sightingDate, timeGranularity)
+              : 'Time not specified'}
+          </Text>
         </View>
       </View>
 
@@ -439,6 +480,31 @@ const styles = StyleSheet.create({
   reviewLocationAddress: {
     fontSize: 14,
     color: COLORS.textSecondary,
+  },
+
+  /**
+   * Container for time preview (row layout)
+   */
+  reviewTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  /**
+   * Time clock icon
+   */
+  reviewTimeIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+
+  /**
+   * Time preview text
+   */
+  reviewTimeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
   },
 })
 

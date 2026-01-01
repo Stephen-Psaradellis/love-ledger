@@ -614,68 +614,66 @@ export type ReportedType = 'post' | 'message' | 'user'
 export type ReportStatus = 'pending' | 'reviewed' | 'resolved' | 'dismissed'
 
 /**
- * User report for content moderation
+ * Reason for reporting content or users
+ */
+export type ReportReason =
+  | 'inappropriate_content'
+  | 'harassment'
+  | 'spam'
+  | 'fake_profile'
+  | 'other'
+
+/**
+ * User report for flagging inappropriate content or users
  *
- * Allows users to report inappropriate content or users.
- * Required for app store compliance.
+ * Allows users to report posts, messages, or other users to moderators.
  */
 export interface Report {
   /** Unique identifier for the report */
   id: UUID
   /** User who submitted the report */
   reporter_id: UUID
-  /** Type of entity being reported: post, message, or user */
+  /** Type of entity being reported */
   reported_type: ReportedType
-  /** UUID of the reported entity (post, message, or user) */
+  /** ID of the reported entity (post, message, or user) */
   reported_id: UUID
-  /** Primary reason for the report */
-  reason: string
-  /** Optional additional context provided by the reporter */
-  additional_details: string | null
-  /** Current status of the report */
+  /** Reason for the report */
+  reason: ReportReason
+  /** Additional details about the report */
+  description: string | null
+  /** Status of the report */
   status: ReportStatus
-  /** Timestamp when the report was reviewed by a moderator */
-  reviewed_at: Timestamp | null
-  /** Timestamp when the report was submitted */
+  /** Moderator notes on the report */
+  moderator_notes: string | null
+  /** Timestamp when the report was created */
   created_at: Timestamp
+  /** Timestamp when the report was last updated */
+  updated_at: Timestamp
 }
 
 /**
  * Fields required when inserting a new report
  */
 export interface ReportInsert {
+  id?: UUID
   reporter_id: UUID
   reported_type: ReportedType
   reported_id: UUID
-  reason: string
-  additional_details?: string | null
+  reason: ReportReason
+  description?: string | null
+  status?: ReportStatus
+  moderator_notes?: string | null
+  created_at?: Timestamp
+  updated_at?: Timestamp
 }
 
 /**
- * Fields that can be updated on a report (for moderation)
+ * Fields that can be updated on a report
  */
 export interface ReportUpdate {
+  reason?: ReportReason
+  description?: string | null
   status?: ReportStatus
-  reviewed_at?: Timestamp
-}
-
-/**
- * Alternative report type with predefined reasons
- */
-export type ReportReason =
-  | 'spam'
-  | 'harassment'
-  | 'inappropriate_content'
-  | 'fake_profile'
-  | 'other'
-
-/**
- * Simplified user report type
- */
-export interface UserReport {
-  id: UUID
-  reporter_id: UUID
-  reported_id: UUID
-  reason: ReportReason
-  created_at: Timestamp
+  moderator_notes?: string | null
+  updated_at?: Timestamp
 }

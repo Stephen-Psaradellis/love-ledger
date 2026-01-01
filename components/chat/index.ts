@@ -28,6 +28,8 @@ export { UserPresenceIndicator } from './UserPresenceIndicator'
 export { BlockUserModal } from './BlockUserModal'
 export { ReportUserModal } from './ReportUserModal'
 export { ChatActionsMenu } from './ChatActionsMenu'
+export { SharePhotoModal } from './SharePhotoModal'
+export { SharedPhotoDisplay } from './SharedPhotoDisplay'
 
 // ============================================================================
 // Custom Hooks

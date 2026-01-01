@@ -48,6 +48,8 @@ import { recordLocationVisit } from '../../lib/utils/geo'
 import type { StoredAvatar } from '../../components/ReadyPlayerMe'
 import type { MainStackNavigationProp, CreatePostRouteProp } from '../../navigation/types'
 import type { Location as LocationEntity, LocationWithVisit } from '../../lib/types'
+import type { TimeGranularity } from '../../types/database'
+import { validateSightingDate } from '../../utils/dateTime'
 
 import {
   type CreatePostStep,
@@ -144,6 +146,10 @@ export interface UseCreatePostFormResult {
   handleNoteChange: (text: string) => void
   /** Handle photo selection */
   handlePhotoSelect: (photoId: string) => void
+  /** Handle sighting date change */
+  handleSightingDateChange: (date: Date | null) => void
+  /** Handle time granularity change */
+  handleTimeGranularityChange: (granularity: TimeGranularity | null) => void
   /** Handle form submission */
   handleSubmit: () => Promise<void>
   /** Navigate to a specific step */
@@ -162,6 +168,8 @@ const INITIAL_FORM_DATA: CreatePostFormData = {
   targetAvatar: null,
   note: '',
   location: null,
+  sightingDate: null,
+  timeGranularity: null,
 }
 
 // ============================================================================
@@ -294,6 +302,14 @@ export function useCreatePostForm(
         return formData.note.trim().length >= MIN_NOTE_LENGTH
       case 'location':
         return formData.location !== null
+      case 'time':
+        // Time step is optional - always valid
+        // If a date is set, validate it's not in the future
+        if (formData.sightingDate) {
+          const validation = validateSightingDate(formData.sightingDate)
+          return validation.valid
+        }
+        return true
       case 'review':
         return isFormValid
       default:
@@ -507,6 +523,20 @@ export function useCreatePostForm(
   }, [])
 
   /**
+   * Handle sighting date change
+   */
+  const handleSightingDateChange = useCallback((date: Date | null) => {
+    setFormData((prev) => ({ ...prev, sightingDate: date }))
+  }, [])
+
+  /**
+   * Handle time granularity change
+   */
+  const handleTimeGranularityChange = useCallback((granularity: TimeGranularity | null) => {
+    setFormData((prev) => ({ ...prev, timeGranularity: granularity }))
+  }, [])
+
+  /**
    * Handle submit post
    */
   const handleSubmit = useCallback(async () => {
@@ -557,6 +587,11 @@ export function useCreatePostForm(
           // selfie_url is required but we use photo_id for new posts
           // Use the storage path from the profile_photo for backwards compatibility
           selfie_url: formData.selectedPhotoId || 'photo_id_reference',
+          // Optional sighting time fields - only include if date is set
+          ...(formData.sightingDate && {
+            sighting_date: formData.sightingDate.toISOString(),
+            time_granularity: formData.timeGranularity,
+          }),
         })
 
       if (postError) {
@@ -628,6 +663,8 @@ export function useCreatePostForm(
     handleAvatarChange,
     handleLocationSelect,
     handleNoteChange,
+    handleSightingDateChange,
+    handleTimeGranularityChange,
     handleSubmit,
     goToStep,
   }

@@ -2,13 +2,14 @@
 // Environment variables are read at build time for flexibility across environments
 
 export default ({ config }) => {
-  const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-  const easProjectId = process.env.EAS_PROJECT_ID || 'your-eas-project-id';
+  // Use the correct env var names that match .env file
+  const googleMapsApiKey = process.env.EXPO_PUBLIC_GCP_MAPS_API_KEY || '';
+  const easProjectId = process.env.EAS_PROJECT_ID || 'c7e1ae8a-a8e1-4010-b978-d6f52acae3c0';
 
   return {
     ...config,
-    name: 'Love Ledger',
-    slug: 'love-ledger',
+    name: 'Backtrack',
+    slug: 'backtrack',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -21,19 +22,20 @@ export default ({ config }) => {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.loveledger.app',
+      bundleIdentifier: 'app.backtrack.social',
+      associatedDomains: ['applinks:backtrack.social', 'webcredentials:backtrack.social'],
       config: {
         googleMapsApiKey,
       },
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
-          'Love Ledger needs your location to show nearby venues where you can post or browse missed connections.',
+          'Backtrack needs your location to show nearby venues where you can post or browse missed connections.',
         NSLocationAlwaysAndWhenInUseUsageDescription:
-          'Love Ledger uses your location to discover nearby venues and help you find missed connections.',
+          'Backtrack uses your location to discover nearby venues and help you find missed connections.',
         NSCameraUsageDescription:
-          'Love Ledger needs camera access for selfie verification when posting missed connections.',
+          'Backtrack needs camera access for selfie verification when posting missed connections.',
         NSPhotoLibraryUsageDescription:
-          'Love Ledger needs photo library access to select photos for your profile.',
+          'Backtrack needs photo library access to select photos for your profile.',
       },
     },
     android: {
@@ -41,7 +43,17 @@ export default ({ config }) => {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#ffffff',
       },
-      package: 'com.loveledger.app',
+      package: 'app.backtrack.social',
+      intentFilters: [
+        {
+          action: 'VIEW',
+          autoVerify: true,
+          data: [
+            { scheme: 'https', host: 'backtrack.social', pathPrefix: '/' },
+          ],
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ],
       config: {
         googleMaps: {
           apiKey: googleMapsApiKey,
@@ -64,25 +76,25 @@ export default ({ config }) => {
         'expo-location',
         {
           locationAlwaysAndWhenInUsePermission:
-            'Love Ledger uses your location to discover nearby venues and help you find missed connections.',
+            'Backtrack uses your location to discover nearby venues and help you find missed connections.',
           locationWhenInUsePermission:
-            'Love Ledger needs your location to show nearby venues where you can post or browse missed connections.',
+            'Backtrack needs your location to show nearby venues where you can post or browse missed connections.',
         },
       ],
       [
         'expo-camera',
         {
           cameraPermission:
-            'Love Ledger needs camera access for selfie verification when posting missed connections.',
+            'Backtrack needs camera access for selfie verification when posting missed connections.',
         },
       ],
       [
         'expo-image-picker',
         {
           photosPermission:
-            'Love Ledger needs photo library access to select photos for your profile.',
+            'Backtrack needs photo library access to select photos for your profile.',
           cameraPermission:
-            'Love Ledger needs camera access for selfie verification when posting missed connections.',
+            'Backtrack needs camera access for selfie verification when posting missed connections.',
         },
       ],
     ],
@@ -92,7 +104,7 @@ export default ({ config }) => {
       },
       // Expose environment variables to the app at runtime
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       googleMapsApiKey,
     },
     experiments: {

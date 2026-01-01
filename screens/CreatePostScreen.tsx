@@ -3,10 +3,12 @@
  *
  * Full producer flow screen for creating "missed connection" posts.
  * Guides users through a multi-step process:
- * 1. Avatar building - Describe the person of interest
- * 2. Note writing - Write a message about the missed connection
- * 3. Location selection - Choose where the connection happened
- * 4. Review and submit
+ * 1. Photo selection - Verify identity with a photo
+ * 2. Avatar building - Describe the person of interest
+ * 3. Note writing - Write a message about the missed connection
+ * 4. Location selection - Choose where the connection happened
+ * 5. Time selection (optional) - When the connection happened
+ * 6. Review and submit
  *
  * This component orchestrates the step flow, delegating rendering
  * and state management to extracted components and hooks.
@@ -39,6 +41,7 @@ import {
   AvatarStep,
   NoteStep,
   LocationStep,
+  TimeStep,
   ReviewStep,
 } from './CreatePost/steps'
 import type { CreatePostStep } from './CreatePost/types'
@@ -50,7 +53,7 @@ import type { CreatePostStep } from './CreatePost/types'
 /**
  * CreatePostScreen - Full producer flow for creating posts
  *
- * Orchestrates a 4-step wizard using extracted step components
+ * Orchestrates a 6-step wizard using extracted step components
  * and the useCreatePostForm hook for state management.
  */
 export function CreatePostScreen(): JSX.Element {
@@ -121,6 +124,17 @@ export function CreatePostScreen(): JSX.Element {
   const handlePhotoSelectWithFeedback = useCallback((photoId: string) => {
     selectionFeedback()
     form.handlePhotoSelect(photoId)
+  }, [form])
+
+  /**
+   * Handle time skip with selection haptic feedback
+   */
+  const handleTimeSkipWithFeedback = useCallback(() => {
+    selectionFeedback()
+    // Clear any set time data and proceed
+    form.handleSightingDateChange(null)
+    form.handleTimeGranularityChange(null)
+    form.handleNext()
   }, [form])
 
   /**
@@ -215,6 +229,20 @@ export function CreatePostScreen(): JSX.Element {
           />
         )
 
+      case 'time':
+        return (
+          <TimeStep
+            date={form.formData.sightingDate}
+            granularity={form.formData.timeGranularity}
+            onDateChange={form.handleSightingDateChange}
+            onGranularityChange={form.handleTimeGranularityChange}
+            onNext={handleNextWithFeedback}
+            onSkip={handleTimeSkipWithFeedback}
+            onBack={handleBackWithFeedback}
+            testID="create-post"
+          />
+        )
+
       case 'review':
         return (
           <ReviewStep
@@ -222,6 +250,8 @@ export function CreatePostScreen(): JSX.Element {
             avatar={form.formData.targetAvatar}
             note={form.formData.note}
             location={form.formData.location}
+            sightingDate={form.formData.sightingDate}
+            timeGranularity={form.formData.timeGranularity}
             isSubmitting={form.isSubmitting}
             isFormValid={form.isFormValid}
             onSubmit={handleSubmitWithFeedback}
