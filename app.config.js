@@ -37,6 +37,7 @@ export default ({ config }) => {
         NSPhotoLibraryUsageDescription:
           'Backtrack needs photo library access to select photos for your profile.',
         UIBackgroundModes: ['remote-notification'],
+        ITSAppUsesNonExemptEncryption: false,
       },
     },
     android: {
