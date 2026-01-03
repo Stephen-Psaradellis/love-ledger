@@ -104,3 +104,7 @@ logs/
 tmp/
 temp/
 .cache/
+# Credentials and secrets (NEVER commit)
+credentials.json
+google-services.json
+GoogleService-Info.plist

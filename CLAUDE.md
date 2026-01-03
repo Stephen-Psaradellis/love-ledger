@@ -13,6 +13,48 @@ This file provides guidance to Claude Code when working with this repository.
 - **State**: Zustand
 - **Testing**: Vitest + React Testing Library
 
+## CRITICAL: Security Rules (READ FIRST)
+
+**NEVER commit secrets, API keys, or credentials to the repository.** This includes:
+
+### Forbidden in Committed Code
+- API keys (Google Maps, Firebase, etc.)
+- Supabase URLs or keys (even anon keys)
+- Passwords or auth tokens
+- Private keys or certificates
+- Any string that looks like `AIza...`, `sk-...`, `pk_...`, `eyJ...` (JWT tokens)
+
+### Before Every Commit - Mandatory Checks
+1. **Check staged files for secrets:**
+   ```bash
+   git diff --cached | grep -iE "(api_key|apikey|secret|password|token|AIza|sk-|pk_)"
+   ```
+2. **Never commit these files:**
+   - `*.keystore`, `*.jks`, `*.p12`, `*.pem`, `*.key`
+   - `.env`, `.env.*` (except `.env.example` with placeholder values)
+   - `credentials.json`, `google-services.json`, `GoogleService-Info.plist`
+3. **Review generated native files:**
+   - `android/app/src/main/AndroidManifest.xml` - Check for hardcoded API keys
+   - `ios/*/Info.plist` - Check for hardcoded API keys
+   - After running `expo prebuild`, ALWAYS check these files before committing
+
+### Where Secrets Should Live
+- **Development**: Doppler CLI (`doppler run -- npx expo start`)
+- **CI/CD**: GitHub Secrets or Doppler integration
+- **Native builds**: EAS Secrets (`eas secret:create`)
+- **Generated files**: Use placeholders like `GOOGLE_MAPS_API_KEY_PLACEHOLDER`
+
+### If a Secret is Accidentally Committed
+1. **Immediately rotate the exposed credential** (generate a new key/secret)
+2. Remove from code and commit the fix
+3. The old secret is compromised forever (git history) - rotation is mandatory
+
+### Expo/React Native Specific
+- `app.config.js` reads secrets from `process.env` - this is correct
+- After `expo prebuild`, the actual values get injected into native files
+- **NEVER commit native files with real API keys** - use placeholders
+- The `android/` and `ios/` directories contain generated files that may have secrets injected
+
 ## Essential Commands
 
 ```bash
@@ -248,6 +290,56 @@ adb -s emulator-5554 shell wm size reset
 - Always use `mobile_list_elements_on_screen` to get accurate coordinates before clicking
 - Use `mobile_press_button BACK` to dismiss keyboards
 - Clear text fields with ADB: `adb shell input keyevent KEYCODE_MOVE_END` then multiple `KEYCODE_DEL`
+
+### ADB Login Procedure (Recommended)
+
+**IMPORTANT**: When logging into the app via ADB/emulator, tapping on input fields is unreliable and often causes text to be entered into the wrong field. Use Tab key navigation instead:
+
+```bash
+# 1. Start Expo dev server with Doppler secrets
+cd C:/Users/snpsa/love-ledger
+doppler run -- npx expo start --android
+
+# 2. Set up port forwarding (required for emulator to reach Metro)
+adb -s emulator-5554 reverse tcp:8081 tcp:8081
+
+# 3. Launch the app via deep link
+adb -s emulator-5554 shell am start -a android.intent.action.VIEW \
+  -d "exp+backtrack://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081"
+
+# 4. Wait for app to load (~10 seconds), then dismiss developer menu modal
+# Tap the X button (coordinates may vary, approximately x=714, y=856)
+adb -s emulator-5554 shell input tap 714 856
+
+# 5. Login using Tab navigation (KEY: use keyevent 61 for Tab, 66 for Enter)
+# This sequence: tap email field → type email → Tab to password → type password → Tab → Enter
+adb -s emulator-5554 shell input tap 412 565 && \
+sleep 1 && \
+adb -s emulator-5554 shell input text "s.n.psaradellis@gmail.com" && \
+sleep 0.5 && \
+adb -s emulator-5554 shell input keyevent 61 && \
+sleep 0.5 && \
+adb -s emulator-5554 shell input text "Test1234!" && \
+sleep 0.5 && \
+adb -s emulator-5554 shell input keyevent 61 && \
+sleep 0.5 && \
+adb -s emulator-5554 shell input keyevent 66
+```
+
+**Key ADB Input Keycodes:**
+- `keyevent 61` = Tab (move to next field)
+- `keyevent 66` = Enter (submit form)
+- `keyevent 4` = Back
+- `keyevent 67` = Delete/Backspace
+
+**Why Tab navigation works better:**
+- Tapping coordinates can miss or hit adjacent elements
+- The keyboard overlay shifts element positions
+- Tab navigation follows the form's natural focus order
+- Enter key reliably submits the focused form
+
+**If login fails with "Invalid Refresh Token" error:**
+This is normal on fresh app starts. The error toast can be dismissed and login will work normally.
 
 ### Secrets Management with Doppler
 
