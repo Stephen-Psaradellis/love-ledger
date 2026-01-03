@@ -69,13 +69,33 @@ if (Platform.OS === 'android') {
   PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE
 }
 
-// Type imports for TypeScript (these don't affect runtime)
-import type {
-  Region,
-  MapPressEvent,
-  MarkerPressEvent,
-  Camera,
-} from 'react-native-maps'
+// Define types inline to avoid importing from react-native-maps on iOS
+// (Metro bundler may try to load the module even for type-only imports)
+interface Region {
+  latitude: number
+  longitude: number
+  latitudeDelta: number
+  longitudeDelta: number
+}
+
+interface MapPressEvent {
+  nativeEvent: {
+    coordinate: {
+      latitude: number
+      longitude: number
+    }
+  }
+}
+
+interface MarkerPressEvent {
+  nativeEvent: {
+    id: string
+    coordinate: {
+      latitude: number
+      longitude: number
+    }
+  }
+}
 
 // ============================================================================
 // TYPES
