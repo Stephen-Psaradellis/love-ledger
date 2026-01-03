@@ -1,6 +1,23 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
 
 const config = getDefaultConfig(__dirname);
+
+// Block react-native-maps from iOS bundle since it's excluded from autolinking
+// This prevents Metro from including the JS that would try to access the missing native module
+config.resolver = {
+  ...config.resolver,
+  resolveRequest: (context, moduleName, platform) => {
+    // On iOS, replace react-native-maps with an empty mock
+    if (moduleName === 'react-native-maps' && platform === 'ios') {
+      return {
+        type: 'empty',
+      };
+    }
+    // Use default resolution for everything else
+    return context.resolveRequest(context, moduleName, platform);
+  },
+};
 
 // Fix for chunked transfer encoding issues with New Architecture on Windows
 // The multipart response parsing in BundleDownloader has issues with
