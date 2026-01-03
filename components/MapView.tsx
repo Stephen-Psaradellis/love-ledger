@@ -58,10 +58,25 @@ import type { Coordinates, MapRegion } from '../lib/types'
 
 // Import react-native-maps for both platforms
 // iOS uses Apple Maps (PROVIDER_DEFAULT), Android uses Google Maps (PROVIDER_GOOGLE)
-const maps = require('react-native-maps')
-const RNMapView = maps.default
-const Marker = maps.Marker
-const PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE
+let RNMapView: any = null
+let Marker: any = null
+let PROVIDER_GOOGLE: any = null
+let mapsLoadError: string | null = null
+
+try {
+  const maps = require('react-native-maps')
+  RNMapView = maps.default
+  Marker = maps.Marker
+  PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE
+  console.log('[MapView] react-native-maps loaded successfully', {
+    hasDefault: !!maps.default,
+    hasMarker: !!maps.Marker,
+    platform: Platform.OS
+  })
+} catch (error) {
+  mapsLoadError = error instanceof Error ? error.message : 'Unknown error loading maps'
+  console.error('[MapView] Failed to load react-native-maps:', error)
+}
 
 // Define types inline to avoid importing from react-native-maps on iOS
 // (Metro bundler may try to load the module even for type-only imports)
@@ -426,9 +441,32 @@ export function MapView({
   }
 
   // ---------------------------------------------------------------------------
+  // RENDER: MODULE LOAD ERROR
+  // ---------------------------------------------------------------------------
+
+  if (mapsLoadError || !RNMapView) {
+    return (
+      <View style={[styles.container, styles.centered, style]} testID={testID}>
+        <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', padding: 20 }}>
+          {mapsLoadError || 'Map module not available'}
+        </Text>
+        <Text style={{ fontSize: 12, color: '#999', textAlign: 'center' }}>
+          Platform: {Platform.OS}
+        </Text>
+      </View>
+    )
+  }
+
+  // ---------------------------------------------------------------------------
   // RENDER: MAP
   // iOS uses Apple Maps (no provider specified), Android uses Google Maps
   // ---------------------------------------------------------------------------
+
+  console.log('[MapView] Rendering map', {
+    platform: Platform.OS,
+    provider: Platform.OS === 'android' ? 'PROVIDER_GOOGLE' : 'Apple Maps (default)',
+    initialRegion: region || initialRegion,
+  })
 
   return (
     <View style={[styles.container, style]} testID={testID}>
@@ -436,6 +474,8 @@ export function MapView({
         ref={mapRef}
         style={[styles.map, mapStyle]}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        onMapLoaded={() => console.log('[MapView] Map loaded successfully')}
+        onError={(e: any) => console.error('[MapView] Map error:', e)}
         initialRegion={region || initialRegion}
         region={region}
         showsUserLocation={showsUserLocation}
