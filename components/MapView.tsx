@@ -68,11 +68,6 @@ try {
   RNMapView = maps.default
   Marker = maps.Marker
   PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE
-  console.log('[MapView] react-native-maps loaded successfully', {
-    hasDefault: !!maps.default,
-    hasMarker: !!maps.Marker,
-    platform: Platform.OS
-  })
 } catch (error) {
   mapsLoadError = error instanceof Error ? error.message : 'Unknown error loading maps'
   console.error('[MapView] Failed to load react-native-maps:', error)
@@ -462,20 +457,12 @@ export function MapView({
   // iOS uses Apple Maps (no provider specified), Android uses Google Maps
   // ---------------------------------------------------------------------------
 
-  console.log('[MapView] Rendering map', {
-    platform: Platform.OS,
-    provider: Platform.OS === 'android' ? 'PROVIDER_GOOGLE' : 'Apple Maps (default)',
-    initialRegion: region || initialRegion,
-  })
-
   return (
     <View style={[styles.container, style]} testID={testID}>
       <RNMapView
         ref={mapRef}
         style={[styles.map, mapStyle]}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        onMapLoaded={() => console.log('[MapView] Map loaded successfully')}
-        onError={(e: any) => console.error('[MapView] Map error:', e)}
         initialRegion={region || initialRegion}
         region={region}
         showsUserLocation={showsUserLocation}
