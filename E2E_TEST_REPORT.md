@@ -5,8 +5,8 @@
 
 ## Test Environment
 - **Platform:** Android (Emulator: Pixel_9_Pro)
-- **Supabase:** https://hyidfsfvqlsimefixfhc.supabase.co
-- **Test Account:** s.n.psaradellis@gmail.com / Test1234!
+- **Supabase:** (configured via Doppler - see CLAUDE.md for setup)
+- **Test Account:** (see CLAUDE.md E2E Testing section for credentials)
 - **App Version:** 1.0.0
 
 ## Test Data Setup

@@ -315,50 +315,130 @@ vi.mock('@react-navigation/bottom-tabs', () => ({
 }))
 
 // Mock react-native core
-vi.mock('react-native', async () => {
-  const actual = await vi.importActual<object>('react-native')
-  return {
-    ...actual,
-    Alert: {
-      alert: vi.fn(),
+// Note: In Vitest 4, vi.importActual('react-native') fails due to Flow types
+// So we provide a complete mock without importing the actual module
+vi.mock('react-native', () => ({
+  // Core components
+  View: 'View',
+  Text: 'Text',
+  Image: 'Image',
+  TextInput: 'TextInput',
+  ScrollView: 'ScrollView',
+  FlatList: 'FlatList',
+  SectionList: 'SectionList',
+  TouchableOpacity: 'TouchableOpacity',
+  TouchableHighlight: 'TouchableHighlight',
+  TouchableWithoutFeedback: 'TouchableWithoutFeedback',
+  Pressable: 'Pressable',
+  Button: 'Button',
+  Switch: 'Switch',
+  ActivityIndicator: 'ActivityIndicator',
+  Modal: 'Modal',
+  SafeAreaView: 'SafeAreaView',
+  StatusBar: 'StatusBar',
+  KeyboardAvoidingView: 'KeyboardAvoidingView',
+  RefreshControl: 'RefreshControl',
+  // StyleSheet
+  StyleSheet: {
+    create: <T extends Record<string, unknown>>(styles: T) => styles,
+    flatten: (style: unknown) => style,
+    hairlineWidth: 1,
+    absoluteFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+    absoluteFillObject: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  },
+  // APIs
+  Alert: {
+    alert: vi.fn(),
+  },
+  Linking: {
+    openURL: vi.fn(() => Promise.resolve()),
+    canOpenURL: vi.fn(() => Promise.resolve(true)),
+    addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+    getInitialURL: vi.fn(() => Promise.resolve(null)),
+  },
+  Platform: {
+    OS: 'ios',
+    Version: '17.0',
+    isPad: false,
+    isTVOS: false,
+    isTV: false,
+    select: <T>(obj: { ios?: T; android?: T; default?: T }) => obj.ios ?? obj.default,
+  },
+  Dimensions: {
+    get: () => ({ width: 375, height: 812, scale: 2, fontScale: 1 }),
+    addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+    set: vi.fn(),
+  },
+  Animated: {
+    View: 'Animated.View',
+    Text: 'Animated.Text',
+    Image: 'Animated.Image',
+    ScrollView: 'Animated.ScrollView',
+    FlatList: 'Animated.FlatList',
+    Value: class {
+      _value: number
+      constructor(val: number) { this._value = val }
+      setValue(val: number) { this._value = val }
+      setOffset() {}
+      flattenOffset() {}
+      extractOffset() {}
+      addListener() { return '' }
+      removeListener() {}
+      removeAllListeners() {}
+      stopAnimation() {}
+      resetAnimation() {}
+      interpolate() { return this }
     },
-    Linking: {
-      openURL: vi.fn(() => Promise.resolve()),
-      canOpenURL: vi.fn(() => Promise.resolve(true)),
-      addEventListener: vi.fn(() => ({ remove: vi.fn() })),
-    },
-    Platform: {
-      OS: 'ios',
-      select: (obj: Record<string, unknown>) => obj.ios ?? obj.default,
-    },
-    Dimensions: {
-      get: () => ({ width: 375, height: 812, scale: 2, fontScale: 1 }),
-      addEventListener: vi.fn(() => ({ remove: vi.fn() })),
-    },
-    Animated: {
-      View: 'Animated.View',
-      Text: 'Animated.Text',
-      Image: 'Animated.Image',
-      Value: class {
-        _value: number
-        constructor(val: number) { this._value = val }
-        setValue(val: number) { this._value = val }
-        interpolate() { return this }
-      },
-      timing: () => ({ start: (cb?: () => void) => cb?.() }),
-      spring: () => ({ start: (cb?: () => void) => cb?.() }),
-      parallel: () => ({ start: (cb?: () => void) => cb?.() }),
-      sequence: () => ({ start: (cb?: () => void) => cb?.() }),
-      loop: () => ({ start: (cb?: () => void) => cb?.() }),
-      event: () => vi.fn(),
-      createAnimatedComponent: (component: unknown) => component,
-    },
-    Keyboard: {
-      dismiss: vi.fn(),
-      addListener: vi.fn(() => ({ remove: vi.fn() })),
-    },
-  }
-})
+    timing: () => ({ start: (cb?: () => void) => cb?.(), stop: vi.fn(), reset: vi.fn() }),
+    spring: () => ({ start: (cb?: () => void) => cb?.(), stop: vi.fn(), reset: vi.fn() }),
+    decay: () => ({ start: (cb?: () => void) => cb?.(), stop: vi.fn(), reset: vi.fn() }),
+    parallel: () => ({ start: (cb?: () => void) => cb?.(), stop: vi.fn(), reset: vi.fn() }),
+    sequence: () => ({ start: (cb?: () => void) => cb?.(), stop: vi.fn(), reset: vi.fn() }),
+    stagger: () => ({ start: (cb?: () => void) => cb?.(), stop: vi.fn(), reset: vi.fn() }),
+    loop: () => ({ start: (cb?: () => void) => cb?.(), stop: vi.fn(), reset: vi.fn() }),
+    event: () => vi.fn(),
+    add: () => ({}),
+    subtract: () => ({}),
+    multiply: () => ({}),
+    divide: () => ({}),
+    modulo: () => ({}),
+    diffClamp: () => ({}),
+    delay: () => ({}),
+    createAnimatedComponent: (component: unknown) => component,
+  },
+  Keyboard: {
+    dismiss: vi.fn(),
+    addListener: vi.fn(() => ({ remove: vi.fn() })),
+    removeListener: vi.fn(),
+    removeAllListeners: vi.fn(),
+    isVisible: vi.fn(() => false),
+    metrics: vi.fn(() => null),
+  },
+  Appearance: {
+    getColorScheme: vi.fn(() => 'light'),
+    addChangeListener: vi.fn(() => ({ remove: vi.fn() })),
+    setColorScheme: vi.fn(),
+  },
+  AppState: {
+    currentState: 'active',
+    addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+    removeEventListener: vi.fn(),
+  },
+  NativeModules: {},
+  NativeEventEmitter: vi.fn(() => ({
+    addListener: vi.fn(() => ({ remove: vi.fn() })),
+    removeListener: vi.fn(),
+    removeAllListeners: vi.fn(),
+  })),
+  PixelRatio: {
+    get: () => 2,
+    getFontScale: () => 1,
+    getPixelSizeForLayoutSize: (size: number) => size * 2,
+    roundToNearestPixel: (size: number) => size,
+  },
+  useWindowDimensions: () => ({ width: 375, height: 812, scale: 2, fontScale: 1 }),
+  useColorScheme: () => 'light',
+}))
 
 // Mock @react-native-community/netinfo
 vi.mock('@react-native-community/netinfo', () => ({

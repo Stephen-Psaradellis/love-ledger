@@ -127,7 +127,7 @@ export function EmptyState({
 // ============================================================================
 
 /**
- * Empty state for no posts at a location
+ * Empty state for no posts at a location - splashy variant
  */
 export function EmptyLedger({
   onCreatePost,
@@ -136,22 +136,100 @@ export function EmptyLedger({
   onCreatePost?: () => void
 }): JSX.Element {
   return (
-    <EmptyState
-      {...props}
-      icon={<FileEdit size={48} strokeWidth={1.5} color="#FF6B47" />}
-      title="No posts here yet"
-      message="Be the first to post and notify Regulars immediately!"
-      action={
-        onCreatePost
-          ? {
-              label: 'Create Post',
-              onPress: onCreatePost,
-            }
-          : undefined
-      }
-    />
+    <View style={splashStyles.container} testID={props.testID || 'ledger-empty'}>
+      {/* Decorative background circles */}
+      <View style={splashStyles.decorCircleOuter} />
+      <View style={splashStyles.decorCircleInner} />
+
+      {/* Icon badge */}
+      <View style={splashStyles.iconBadge}>
+        <FileEdit size={36} strokeWidth={2} color="#FFFFFF" />
+      </View>
+
+      {/* Title */}
+      <Text style={splashStyles.title}>No posts here yet</Text>
+
+      {/* Message */}
+      <Text style={splashStyles.message}>
+        Be the first to post and notify Regulars immediately!
+      </Text>
+
+      {/* CTA Button */}
+      {onCreatePost && (
+        <View style={splashStyles.buttonContainer}>
+          <Button
+            title="Create Post"
+            onPress={onCreatePost}
+            variant="primary"
+            testID="empty-ledger-action"
+          />
+        </View>
+      )}
+    </View>
   )
 }
+
+const splashStyles = StyleSheet.create({
+  container: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 64,
+    backgroundColor: '#FFF5F3',
+    borderRadius: 24,
+    marginHorizontal: 16,
+    marginVertical: 24,
+    minHeight: 400,
+  },
+  decorCircleOuter: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(255, 107, 71, 0.08)',
+  },
+  decorCircleInner: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255, 107, 71, 0.12)',
+  },
+  iconBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FF6B47',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#FF6B47',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  message: {
+    fontSize: 17,
+    fontWeight: '500',
+    color: '#FF6B47',
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 16,
+  },
+  buttonContainer: {
+    marginTop: 32,
+    width: '100%',
+    maxWidth: 240,
+  },
+})
 
 /**
  * Empty state for no conversations

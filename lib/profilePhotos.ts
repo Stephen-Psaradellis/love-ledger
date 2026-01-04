@@ -21,6 +21,8 @@
  * ```
  */
 
+import * as Crypto from 'expo-crypto'
+
 import { supabase, supabaseUrl } from './supabase'
 import {
   uploadProfilePhoto as uploadToStorage,
@@ -87,7 +89,7 @@ export const PROFILE_PHOTO_ERRORS = {
  * Generate a UUID for a new photo
  */
 function generatePhotoId(): string {
-  return crypto.randomUUID()
+  return Crypto.randomUUID()
 }
 
 /**

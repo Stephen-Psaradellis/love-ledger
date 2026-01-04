@@ -1,5 +1,12 @@
 -- Configure Edge Function URLs for production
--- This migration sets up the app_configuration table with production Edge Function URLs
+-- This migration sets up the app_configuration table with Edge Function URLs
+--
+-- IMPORTANT: The URLs below use the project reference. After deploying to a new environment,
+-- update these values using:
+--   SELECT set_app_config('edge_function_url', 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/send-notification');
+--   SELECT set_app_config('spark_notification_url', 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/send-spark-notification');
+--   SELECT set_app_config('match_notification_url', 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/send-match-notification');
+--   SELECT set_app_config('moderate_image_url', 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/moderate-image');
 
 -- Create app_configuration table if not exists
 CREATE TABLE IF NOT EXISTS app_configuration (

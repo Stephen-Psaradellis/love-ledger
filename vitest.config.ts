@@ -6,8 +6,9 @@ export default defineConfig({
     // Enable global test functions (describe, it, expect) without imports
     globals: true,
 
-    // Default environment for tests (node for server-side, utility tests)
-    environment: 'node',
+    // Default environment for tests (jsdom for React components/hooks)
+    // Vitest 4.x changed environmentMatchGlobs behavior, so we default to jsdom
+    environment: 'jsdom',
 
     // Setup files to run before tests (merged from jest.setup.ts and jest.setup.js)
     setupFiles: ['./vitest.setup.ts'],
@@ -32,27 +33,14 @@ export default defineConfig({
     ],
 
     // Multi-environment support: assign different environments based on file patterns
-    // - jsdom: React/DOM components (default for .tsx files)
-    // - node: Server-side utilities and pure logic
-    // - happy-dom: Alternative lightweight DOM for performance-critical tests
+    // Default is jsdom (set above), only override for node-specific tests
+    // Vitest 4.x uses first matching pattern, so order matters
     environmentMatchGlobs: [
-      // Component tests use jsdom for React DOM testing
-      ['**/components/**/*.test.{ts,tsx}', 'jsdom'],
-      ['**/__tests__/components/**/*.test.{ts,tsx}', 'jsdom'],
-      // Hook tests with React use jsdom (both .ts and .tsx)
-      ['**/hooks/**/*.test.{ts,tsx}', 'jsdom'],
-      ['**/__tests__/hooks/**/*.test.{ts,tsx}', 'jsdom'],
-      // Utils that need browser APIs (localStorage, etc.) use jsdom
-      ['**/__tests__/utils/**/*.test.{ts,tsx}', 'jsdom'],
-      // Services that need browser APIs use jsdom
-      ['**/__tests__/services/**/*.test.{ts,tsx}', 'jsdom'],
-      // Utility/library tests use node environment (for pure logic)
-      ['**/lib/**/*.test.ts', 'node'],
-      ['**/__tests__/lib/**/*.test.ts', 'node'],
-      // Server-side tests use node
+      // Server-side / pure logic tests use node environment
       ['**/app/api/**/*.test.ts', 'node'],
       // Happy-dom for tests that need DOM but want faster execution
       ['**/*.happy.test.{ts,tsx}', 'happy-dom'],
+      // Everything else uses default (jsdom)
     ],
 
     // Clear mocks between tests for isolation
@@ -105,6 +93,8 @@ export default defineConfig({
     alias: {
       // Module path alias matching tsconfig.json
       '@': path.resolve(__dirname, './'),
+      // Vitest 4.x: Alias react-native to our mock to avoid Flow type parsing errors
+      'react-native': path.resolve(__dirname, './__tests__/mocks/react-native.ts'),
     },
   },
 })

@@ -16,15 +16,27 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Use environment variables or fallback to the values from .env
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://hyidfsfvqlsimefixfhc.supabase.co';
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '***REMOVED***';
+// SECURITY: Use environment variables only - never hardcode secrets
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseSecretKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+
+if (!supabaseUrl) {
+  console.error('ERROR: EXPO_PUBLIC_SUPABASE_URL or SUPABASE_URL environment variable is required');
+  console.error('Run with: doppler run -- npx ts-node scripts/seed-e2e-data.ts');
+  process.exit(1);
+}
+
+if (!supabaseSecretKey) {
+  console.error('ERROR: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY environment variable is required');
+  console.error('Run with: doppler run -- npx ts-node scripts/seed-e2e-data.ts');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseSecretKey);
 
-// Test user account (from CLAUDE.md)
-const TEST_USER_EMAIL = 's.n.psaradellis@gmail.com';
-const TEST_USER_PASSWORD = 'Test1234!';
+// Test user credentials from environment or fallback for CI
+const TEST_USER_EMAIL = process.env.E2E_TEST_USER_EMAIL || 's.n.psaradellis@gmail.com';
+const TEST_USER_PASSWORD = process.env.E2E_TEST_USER_PASSWORD || 'Test1234!';
 
 // Generate UUIDs for test data
 function generateUUID(): string {

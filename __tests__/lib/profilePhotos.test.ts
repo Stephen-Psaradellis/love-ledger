@@ -227,10 +227,10 @@ vi.mock('../../lib/supabase', () => ({
   supabaseUrl: 'https://test.supabase.co',
 }))
 
-// Mock crypto.randomUUID
-vi.stubGlobal('crypto', {
+// Mock expo-crypto
+vi.mock('expo-crypto', () => ({
   randomUUID: () => 'test-uuid-123',
-})
+}))
 
 // Import the service under test AFTER mocking dependencies
 import {

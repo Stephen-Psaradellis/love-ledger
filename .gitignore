@@ -108,3 +108,9 @@ temp/
 credentials.json
 google-services.json
 GoogleService-Info.plist
+
+# Supabase temp files (may contain connection strings)
+supabase/.temp/
+
+# E2E seed scripts that might contain secrets (use env vars instead)
+# scripts/seed-e2e-data.mjs  # Tracked but secrets removed - use doppler run

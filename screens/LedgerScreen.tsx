@@ -274,6 +274,7 @@ export function LedgerScreen(): React.ReactNode {
     fetchPosts()
   }, [fetchPosts])
 
+
   // ---------------------------------------------------------------------------
   // HANDLERS
   // ---------------------------------------------------------------------------
@@ -411,17 +412,16 @@ export function LedgerScreen(): React.ReactNode {
 
   /**
    * Render empty state when no posts exist
+   * Note: This is now only used as a fallback. The main empty state
+   * rendering is done directly in the component return when posts.length === 0
    */
   const renderEmptyState = useCallback(() => {
     if (loading) return null
-
     return (
-      <View style={styles.emptyContainer}>
-        <EmptyLedger
-          onCreatePost={handleCreatePost}
-          testID="ledger-empty"
-        />
-      </View>
+      <EmptyLedger
+        onCreatePost={handleCreatePost}
+        testID="ledger-empty"
+      />
     )
   }, [loading, handleCreatePost])
 
@@ -484,6 +484,19 @@ export function LedgerScreen(): React.ReactNode {
   // RENDER: POST LIST
   // ---------------------------------------------------------------------------
 
+  // Render empty state directly (bypasses FlatList ListEmptyComponent rendering issues)
+  if (!loading && posts.length === 0) {
+    return (
+      <View style={styles.container} testID="ledger-screen">
+        {renderHeader()}
+        <EmptyLedger
+          onCreatePost={handleCreatePost}
+          testID="ledger-empty"
+        />
+      </View>
+    )
+  }
+
   return (
     <Tooltip
       isVisible={tutorial.isVisible}
@@ -496,6 +509,7 @@ export function LedgerScreen(): React.ReactNode {
     >
       <View style={styles.container} testID="ledger-screen">
         <FlatList
+          style={{ flex: 1 }}
           data={posts}
           renderItem={renderPost}
           keyExtractor={keyExtractor}

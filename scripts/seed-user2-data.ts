@@ -13,12 +13,19 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Use environment variables or fallback values
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://hyidfsfvqlsimefixfhc.supabase.co';
+// SECURITY: Use environment variables only - never hardcode URLs or secrets
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 
+if (!supabaseUrl) {
+  console.error('ERROR: EXPO_PUBLIC_SUPABASE_URL or SUPABASE_URL environment variable is required');
+  console.error('Run with: doppler run -- npx ts-node scripts/seed-user2-data.ts');
+  process.exit(1);
+}
+
 if (!supabaseServiceKey) {
-  console.error('SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY is required');
+  console.error('ERROR: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY environment variable is required');
+  console.error('Run with: doppler run -- npx ts-node scripts/seed-user2-data.ts');
   process.exit(1);
 }
 

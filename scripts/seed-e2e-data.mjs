@@ -5,13 +5,27 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://hyidfsfvqlsimefixfhc.supabase.co';
-const supabaseSecretKey = '***REMOVED***';
+// SECURITY: Never hardcode secrets - use environment variables
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseSecretKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+
+if (!supabaseUrl) {
+  console.error('ERROR: EXPO_PUBLIC_SUPABASE_URL or SUPABASE_URL environment variable is required');
+  console.error('Run with: doppler run -- node scripts/seed-e2e-data.mjs');
+  process.exit(1);
+}
+
+if (!supabaseSecretKey) {
+  console.error('ERROR: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY environment variable is required');
+  console.error('Run with: doppler run -- node scripts/seed-e2e-data.mjs');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseSecretKey);
 
-const TEST_USER_EMAIL = 's.n.psaradellis@gmail.com';
-const TEST_USER_PASSWORD = 'Test1234!';
+// Test credentials from environment or fallback to defaults for CI
+const TEST_USER_EMAIL = process.env.E2E_TEST_USER_EMAIL || 's.n.psaradellis@gmail.com';
+const TEST_USER_PASSWORD = process.env.E2E_TEST_USER_PASSWORD || 'Test1234!';
 
 const avatarConfigs = {
   maleWithBeard: {
