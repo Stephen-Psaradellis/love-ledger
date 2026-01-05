@@ -179,6 +179,9 @@ vi.mock('expo-image-picker', () => ({
   ),
   requestCameraPermissionsAsync: vi.fn(() => Promise.resolve({ status: 'granted' })),
   requestMediaLibraryPermissionsAsync: vi.fn(() => Promise.resolve({ status: 'granted' })),
+  // New MediaType enum (recommended)
+  MediaType: { image: 'images', video: 'videos', livePhoto: 'livePhotos' },
+  // Legacy MediaTypeOptions (deprecated but kept for backwards compatibility)
   MediaTypeOptions: { All: 'All', Videos: 'Videos', Images: 'Images' },
   CameraType: { front: 'front', back: 'back' },
 }))

@@ -63,21 +63,19 @@ export {
   type LocationItem,
 } from './LocationPicker'
 
-// Ready Player Me Avatar
+// Custom Avatar System
 export {
-  RPMAvatarPreview,
-  XSAvatarPreview,
-  SmallAvatarPreview,
-  MediumAvatarPreview,
-  LargeAvatarPreview,
-  XLAvatarPreview,
-  FullBodyAvatarPreview,
-  ReadyPlayerMeCreator,
-  AVATAR_SIZES,
-  type StoredAvatar,
-  type RPMAvatarData,
-  type RPMAvatarPreviewProps,
-} from './ReadyPlayerMe'
+  AvatarDisplay,
+  AvatarCreator,
+  XSAvatarDisplay,
+  SmallAvatarDisplay,
+  MediumAvatarDisplay,
+  LargeAvatarDisplay,
+  XLAvatarDisplay,
+  type CustomAvatarConfig,
+  type StoredCustomAvatar,
+  type AvatarDisplayProps,
+} from './avatar/index'
 
 // Selfie Camera
 export {

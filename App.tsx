@@ -15,12 +15,20 @@
 // IMPORTANT: gesture-handler must be imported at the very top
 import 'react-native-gesture-handler'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { StyleSheet } from 'react-native'
-import * as Notifications from 'expo-notifications'
+import { StyleSheet, LogBox } from 'react-native'
+
+// Suppress Legacy Architecture warning - we intentionally use it for compatibility
+// with react-native-maps and some expo modules. Migration to New Architecture
+// should be done in a dedicated effort when all dependencies are ready.
+// NOTE: Legacy Architecture is frozen as of RN 0.80 and removed in RN 0.82.
+// Expo SDK 54 is the last SDK to support it. Plan migration before upgrading.
+LogBox.ignoreLogs([
+  'The app is running using the Legacy Architecture',
+])
 
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppNavigator } from './navigation/AppNavigator'
@@ -28,22 +36,45 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { registerForPushNotifications } from './services/notifications'
 
 // ============================================================================
-// NOTIFICATION HANDLER SETUP (Must be called at module level, outside component)
+// NOTIFICATION SETUP (Lazy loaded to handle native module issues)
 // ============================================================================
 
-/**
- * Configure how notifications are handled when the app is in the foreground.
- * This determines whether to show alerts, play sounds, and update badges.
- */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-})
+// Dynamically import expo-notifications to handle cases where native modules
+// aren't available (e.g., mismatched iOS dev client and JS bundle versions)
+let Notifications: typeof import('expo-notifications') | null = null
+let notificationsAvailable = false
+
+// Try to load notifications module asynchronously
+async function initializeNotifications(): Promise<void> {
+  try {
+    Notifications = await import('expo-notifications')
+    notificationsAvailable = true
+
+    // Configure how notifications are handled when the app is in the foreground
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    })
+
+    if (__DEV__) {
+      console.log('[App] Notifications module loaded successfully')
+    }
+  } catch (error) {
+    notificationsAvailable = false
+    if (__DEV__) {
+      console.warn('[App] Failed to load notifications module:', error)
+      console.warn('[App] Push notifications will be disabled. To fix this, rebuild your development client.')
+    }
+  }
+}
+
+// Initialize notifications (non-blocking)
+initializeNotifications()
 
 // ============================================================================
 // HELPER COMPONENTS
@@ -74,35 +105,54 @@ function handleGlobalError(error: Error, errorInfo: React.ErrorInfo): void {
  */
 function NotificationRegistration({ children }: { children: React.ReactNode }): React.JSX.Element {
   const { userId, isAuthenticated } = useAuth()
-  const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null)
+  const [notificationsReady, setNotificationsReady] = useState(false)
+  const notificationResponseListener = useRef<{ remove: () => void } | null>(null)
+
+  // Wait for notifications module to be ready
+  useEffect(() => {
+    const checkNotifications = async () => {
+      // Wait a bit for the async initialization to complete
+      await new Promise(resolve => setTimeout(resolve, 100))
+      setNotificationsReady(notificationsAvailable)
+    }
+    checkNotifications()
+  }, [])
 
   // Register for push notifications when user is authenticated
   useEffect(() => {
-    if (isAuthenticated && userId) {
+    if (isAuthenticated && userId && notificationsReady) {
       // Register for push notifications
       // Note: This will request permissions and register token
       // Per spec, we don't request on first app launch - only when authenticated
       registerForPushNotifications(userId)
     }
-  }, [isAuthenticated, userId])
+  }, [isAuthenticated, userId, notificationsReady])
 
   // Set up notification response listener for deep-linking
   useEffect(() => {
-    // Listen for when user taps on a notification
-    notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        // The notification data contains the deep-link URL
-        // Deep-linking navigation is handled by React Navigation's linking config
-        // which will be set up in AppNavigator (subtask-5-1)
-        const data = response.notification.request.content.data
+    if (!notificationsReady || !Notifications) return
 
-        // Navigation will be handled automatically by linking config
-        // when the app receives the notification URL
-        if (__DEV__ && data) {
-          // Debug logging in development only
+    try {
+      // Listen for when user taps on a notification
+      notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener(
+        (response) => {
+          // The notification data contains the deep-link URL
+          // Deep-linking navigation is handled by React Navigation's linking config
+          // which will be set up in AppNavigator (subtask-5-1)
+          const data = response.notification.request.content.data
+
+          // Navigation will be handled automatically by linking config
+          // when the app receives the notification URL
+          if (__DEV__ && data) {
+            // Debug logging in development only
+          }
         }
+      )
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[App] Failed to set up notification listener:', error)
       }
-    )
+    }
 
     // Cleanup listener on unmount
     return () => {
@@ -110,7 +160,7 @@ function NotificationRegistration({ children }: { children: React.ReactNode }): 
         notificationResponseListener.current.remove()
       }
     }
-  }, [])
+  }, [notificationsReady])
 
   return <>{children}</>
 }

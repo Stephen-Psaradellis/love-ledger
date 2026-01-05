@@ -268,8 +268,7 @@ const mockConsumerProfile = {
   ...mockProfile,
   id: mockConsumerUser.id,
   display_name: 'Consumer User',
-  own_avatar: null,
-  rpm_avatar_id: 'mock-rpm-avatar-123',
+  avatar: null,
 }
 
 /**
@@ -278,7 +277,7 @@ const mockConsumerProfile = {
 const mockProducerProfile = {
   id: 'producer-user-123',
   display_name: 'Producer User',
-  own_avatar: null,
+  avatar: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }

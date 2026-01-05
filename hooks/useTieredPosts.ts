@@ -39,7 +39,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 
 import { supabase } from '../lib/supabase'
 import type { VerificationTier, UUID, Timestamp } from '../types/database'
-import type { StoredAvatar } from '../components/ReadyPlayerMe'
+import type { StoredCustomAvatar } from '../components/avatar/types'
 
 // ============================================================================
 // TYPES
@@ -54,7 +54,7 @@ export interface TieredPost {
   location_name: string
   producer_id: UUID
   message: string
-  target_rpm_avatar: StoredAvatar | null
+  target_avatar_v2: StoredCustomAvatar | null
   sighting_date: Timestamp | null
   time_granularity: string | null
   created_at: Timestamp

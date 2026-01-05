@@ -1,10 +1,9 @@
 import { memo, useCallback } from 'react'
 import { Button } from '../ui/Button'
 import { getStepById } from '../../lib/onboarding/onboardingConfig'
-import type { AvatarConfig } from '../../types/avatar'
 
-// Placeholder for legacy DiceBear avatar - this component needs to be migrated to RPM
-const createAvatarDataUri = (_config: AvatarConfig, _size: number): string => {
+// Placeholder avatar for demo screens - returns a simple SVG silhouette
+const createAvatarDataUri = (_size: number): string => {
   return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="%23f0f0f0"/><circle cx="50" cy="40" r="20" fill="%23ccc"/><ellipse cx="50" cy="80" rx="30" ry="20" fill="%23ccc"/></svg>'
 }
 
@@ -127,7 +126,7 @@ const MockPostCard = memo(function MockPostCard({
   location,
   timeAgo,
 }: MockPostCardProps) {
-  const avatarDataUri = createAvatarDataUri(avatar, 80)
+  const avatarDataUri = createAvatarDataUri(80)
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl border border-gray-100 dark:border-gray-700 p-4 transition-shadow duration-300">

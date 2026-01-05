@@ -105,7 +105,12 @@ async function getCurrentUserId(): Promise<string | null> {
  */
 async function triggerModeration(photoId: string, storagePath: string): Promise<void> {
   try {
-    const { error } = await supabase.functions.invoke('moderate-image', {
+    const { data, error } = await supabase.functions.invoke<{
+      success?: boolean
+      status?: string
+      error?: string
+      details?: string
+    }>('moderate-image', {
       body: {
         photo_id: photoId,
         storage_path: storagePath,
@@ -113,8 +118,31 @@ async function triggerModeration(photoId: string, storagePath: string): Promise<
     })
 
     if (error) {
+      // Log detailed error info for debugging
       console.error('Failed to trigger moderation:', error)
+
+      // FunctionsHttpError contains response details
+      const errorDetails: Record<string, unknown> = {
+        name: error.name,
+        message: error.message,
+      }
+
+      // Try to extract more details from the error
+      if ('context' in error) {
+        errorDetails.context = (error as { context?: unknown }).context
+      }
+
+      // Log the full error object for debugging
+      console.error('Full moderation error:', JSON.stringify(error, null, 2))
+      console.error('Moderation error details:', errorDetails)
+      console.error('Hint: Check Supabase Dashboard > Edge Functions > moderate-image > Logs for server-side errors')
       // Don't throw - photo is still uploaded, just pending manual review
+    } else if (data) {
+      if (data.error) {
+        console.error('Moderation returned error:', data.error, data.details)
+      } else {
+        console.log('Moderation completed:', data.status)
+      }
     }
   } catch (err) {
     console.error('Error invoking moderation function:', err)

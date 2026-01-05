@@ -31,7 +31,7 @@
  * ```
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   uploadProfilePhoto,
   getProfilePhotos,
@@ -48,16 +48,36 @@ import {
 import type { ModerationStatus } from '../types/database'
 
 // ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/**
+ * Timeout for photo moderation in milliseconds (30 seconds)
+ * If a photo is pending for longer than this, it's considered timed out
+ */
+const MODERATION_TIMEOUT_MS = 30 * 1000
+
+/**
+ * Interval for checking moderation timeouts (5 seconds)
+ */
+const TIMEOUT_CHECK_INTERVAL_MS = 5 * 1000
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
+export interface ProfilePhotoWithTimeout extends ProfilePhotoWithUrl {
+  /** Whether this photo has timed out waiting for moderation */
+  isTimedOut?: boolean
+}
+
 export interface UseProfilePhotosResult {
-  /** All profile photos (including pending/rejected) */
-  photos: ProfilePhotoWithUrl[]
+  /** All profile photos (including pending/rejected) with timeout info */
+  photos: ProfilePhotoWithTimeout[]
   /** Only approved photos (for selection) */
-  approvedPhotos: ProfilePhotoWithUrl[]
+  approvedPhotos: ProfilePhotoWithTimeout[]
   /** The user's primary photo */
-  primaryPhoto: ProfilePhotoWithUrl | null
+  primaryPhoto: ProfilePhotoWithTimeout | null
   /** Whether photos are being loaded */
   loading: boolean
   /** Whether a photo is being uploaded */
@@ -72,6 +92,8 @@ export interface UseProfilePhotosResult {
   hasReachedLimit: boolean
   /** Current photo count */
   photoCount: number
+  /** Whether any photos have timed out */
+  hasTimedOutPhotos: boolean
 
   // Actions
   /** Upload a new photo */
@@ -84,6 +106,8 @@ export interface UseProfilePhotosResult {
   refresh: () => Promise<void>
   /** Clear error */
   clearError: () => void
+  /** Retry moderation for a timed-out photo */
+  retryModeration: (photoId: string) => Promise<boolean>
 }
 
 // ============================================================================
@@ -98,10 +122,41 @@ export function useProfilePhotos(): UseProfilePhotosResult {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Track when photos started pending (for timeout detection)
+  const pendingStartTimes = useRef<Map<string, number>>(new Map())
+
+  // Force re-render for timeout updates
+  const [, forceUpdate] = useState(0)
+
+  // Helper to check if a photo has timed out
+  const isPhotoTimedOut = useCallback((photo: ProfilePhotoWithUrl): boolean => {
+    if (photo.moderation_status !== 'pending') {
+      return false
+    }
+
+    const startTime = pendingStartTimes.current.get(photo.id)
+    if (!startTime) {
+      // First time seeing this pending photo, record the start time
+      pendingStartTimes.current.set(photo.id, Date.now())
+      return false
+    }
+
+    return Date.now() - startTime > MODERATION_TIMEOUT_MS
+  }, [])
+
+  // Photos with timeout info
+  const photosWithTimeout: ProfilePhotoWithTimeout[] = useMemo(
+    () => photos.map((p) => ({
+      ...p,
+      isTimedOut: isPhotoTimedOut(p),
+    })),
+    [photos, isPhotoTimedOut]
+  )
+
   // Computed values
   const approvedPhotos = useMemo(
-    () => photos.filter((p) => p.moderation_status === 'approved'),
-    [photos]
+    () => photosWithTimeout.filter((p) => p.moderation_status === 'approved'),
+    [photosWithTimeout]
   )
 
   const primaryPhoto = useMemo(
@@ -111,12 +166,47 @@ export function useProfilePhotos(): UseProfilePhotosResult {
 
   const hasApprovedPhotos = approvedPhotos.length > 0
 
+  const hasTimedOutPhotos = useMemo(
+    () => photosWithTimeout.some((p) => p.isTimedOut),
+    [photosWithTimeout]
+  )
+
   const photoCount = useMemo(
     () => photos.filter((p) => p.moderation_status !== 'rejected' && p.moderation_status !== 'error').length,
     [photos]
   )
 
   const hasReachedLimit = photoCount >= MAX_PROFILE_PHOTOS
+
+  // Check for timeouts periodically
+  useEffect(() => {
+    const hasPendingPhotos = photos.some((p) => p.moderation_status === 'pending')
+
+    if (!hasPendingPhotos) {
+      return
+    }
+
+    const intervalId = setInterval(() => {
+      // Force re-render to update timeout status
+      forceUpdate((n) => n + 1)
+    }, TIMEOUT_CHECK_INTERVAL_MS)
+
+    return () => clearInterval(intervalId)
+  }, [photos])
+
+  // Clean up pending start times when photos are no longer pending
+  useEffect(() => {
+    const currentPendingIds = new Set(
+      photos.filter((p) => p.moderation_status === 'pending').map((p) => p.id)
+    )
+
+    // Remove entries for photos that are no longer pending
+    for (const id of pendingStartTimes.current.keys()) {
+      if (!currentPendingIds.has(id)) {
+        pendingStartTimes.current.delete(id)
+      }
+    }
+  }, [photos])
 
   // Load photos
   const loadPhotos = useCallback(async () => {
@@ -265,8 +355,28 @@ export function useProfilePhotos(): UseProfilePhotosResult {
     setError(null)
   }, [])
 
+  // Retry moderation for a timed-out photo by deleting and re-uploading
+  // For now, this just deletes the photo - user can upload again
+  const retryModeration = useCallback(async (photoId: string): Promise<boolean> => {
+    // Reset the timeout timer for this photo
+    pendingStartTimes.current.delete(photoId)
+
+    // Refresh to check if moderation completed
+    await loadPhotos()
+
+    // Check if the photo is still pending after refresh
+    const photo = photos.find((p) => p.id === photoId)
+    if (photo && photo.moderation_status === 'pending') {
+      // Still pending - just let the user know to delete and retry
+      setError('Photo verification is taking too long. You can delete it and try again.')
+      return false
+    }
+
+    return true
+  }, [loadPhotos, photos])
+
   return {
-    photos,
+    photos: photosWithTimeout,
     approvedPhotos,
     primaryPhoto,
     loading,
@@ -276,11 +386,13 @@ export function useProfilePhotos(): UseProfilePhotosResult {
     hasApprovedPhotos,
     hasReachedLimit,
     photoCount,
+    hasTimedOutPhotos,
     uploadPhoto,
     deletePhoto,
     setPrimary,
     refresh,
     clearError,
+    retryModeration,
   }
 }
 

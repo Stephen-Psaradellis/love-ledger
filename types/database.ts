@@ -5,8 +5,7 @@
  * These types mirror the Supabase PostgreSQL schema defined in migrations.
  */
 
-import type { StoredAvatar } from '../components/ReadyPlayerMe'
-import type { AvatarConfig } from './avatar'
+import type { StoredCustomAvatar } from '../components/avatar/types'
 
 // ============================================================================
 // COMMON TYPES
@@ -55,14 +54,10 @@ export interface Profile {
   username: string | null
   /** Optional display name for the user */
   display_name: string | null
-  /** @deprecated Legacy avatar configuration - no longer used */
-  avatar_config: Record<string, unknown> | null
-  /** @deprecated Legacy own avatar - no longer used */
-  own_avatar: Record<string, unknown> | null
-  /** Ready Player Me avatar data for realistic 3D avatar display */
-  rpm_avatar: StoredAvatar | null
-  /** Ready Player Me avatar ID for quick lookups */
-  rpm_avatar_id: string | null
+  /** Custom avatar data for matching and display */
+  avatar: StoredCustomAvatar | null
+  /** Avatar schema version for migrations */
+  avatar_version: number
   /** Whether the user has completed identity verification */
   is_verified: boolean
   /** Timestamp when the user was verified (null if not verified) */
@@ -82,10 +77,8 @@ export interface ProfileInsert {
   id: UUID
   username?: string | null
   display_name?: string | null
-  avatar_config?: Record<string, unknown> | null
-  own_avatar?: Record<string, unknown> | null
-  rpm_avatar?: StoredAvatar | null
-  rpm_avatar_id?: string | null
+  avatar?: StoredCustomAvatar | null
+  avatar_version?: number
   is_verified?: boolean
   verified_at?: Timestamp | null
   terms_accepted_at?: Timestamp | null
@@ -99,10 +92,8 @@ export interface ProfileInsert {
 export interface ProfileUpdate {
   username?: string | null
   display_name?: string | null
-  avatar_config?: Record<string, unknown> | null
-  own_avatar?: Record<string, unknown> | null
-  rpm_avatar?: StoredAvatar | null
-  rpm_avatar_id?: string | null
+  avatar?: StoredCustomAvatar | null
+  avatar_version?: number
   terms_accepted_at?: Timestamp | null
   updated_at?: Timestamp
 }
@@ -411,10 +402,8 @@ export interface Post {
   selfie_url: string
   /** Reference to profile photo used for verification */
   photo_id: UUID | null
-  /** @deprecated Legacy avatar configuration - no longer used */
-  target_avatar: Record<string, unknown> | null
-  /** Ready Player Me avatar for describing the person of interest */
-  target_rpm_avatar: StoredAvatar | null
+  /** Custom avatar for describing the person of interest */
+  target_avatar_v2: StoredCustomAvatar | null
   /** Additional description of the target person */
   target_description: string | null
   /** Message left by the producer */
@@ -444,8 +433,7 @@ export interface PostInsert {
   location_id: UUID
   selfie_url: string
   photo_id?: UUID | null
-  target_avatar?: Record<string, unknown> | null
-  target_rpm_avatar?: StoredAvatar | null
+  target_avatar_v2?: StoredCustomAvatar | null
   target_description?: string | null
   message: string
   note?: string | null
@@ -463,8 +451,7 @@ export interface PostInsert {
 export interface PostUpdate {
   selfie_url?: string
   photo_id?: UUID | null
-  target_avatar?: Record<string, unknown> | null
-  target_rpm_avatar?: StoredAvatar | null
+  target_avatar_v2?: StoredCustomAvatar | null
   target_description?: string | null
   message?: string
   note?: string | null

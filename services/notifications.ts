@@ -11,6 +11,9 @@
  * - Tokens are stored in expo_push_tokens table for Edge Function access
  * - Token registration should be retried on failure (network issues)
  *
+ * IMPORTANT: This module uses lazy loading for expo-notifications to handle
+ * cases where native modules aren't available (mismatched dev client versions).
+ *
  * @example
  * ```tsx
  * import { registerForPushNotifications, requestNotificationPermissions } from 'services/notifications'
@@ -23,11 +26,38 @@
  * ```
  */
 
-import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import Constants from 'expo-constants'
 import { Platform } from 'react-native'
 import { supabase } from '../lib/supabase'
+
+// Lazy-loaded expo-notifications module
+let NotificationsModule: typeof import('expo-notifications') | null = null
+let notificationsLoadError: string | null = null
+
+/**
+ * Lazily load the expo-notifications module
+ * This prevents crashes when native modules aren't available
+ */
+async function getNotificationsModule(): Promise<typeof import('expo-notifications') | null> {
+  if (NotificationsModule) return NotificationsModule
+  if (notificationsLoadError) return null
+
+  try {
+    NotificationsModule = await import('expo-notifications')
+    return NotificationsModule
+  } catch (error) {
+    notificationsLoadError = error instanceof Error
+      ? error.message
+      : 'Failed to load notifications module'
+    if (__DEV__) {
+      console.warn('[notifications] Failed to load expo-notifications:', error)
+      console.warn('[notifications] Push notifications will be disabled.')
+      console.warn('[notifications] To fix this, rebuild your development client.')
+    }
+    return null
+  }
+}
 
 // ============================================================================
 // TYPES
@@ -100,6 +130,7 @@ export const NOTIFICATION_ERRORS = {
   TOKEN_REMOVAL_FAILED: 'Failed to remove push token. Please try again.',
   USER_NOT_AUTHENTICATED: 'User must be authenticated to register push notifications.',
   PROJECT_ID_MISSING: 'Expo project ID is not configured. Please check your app.json or environment variables.',
+  NATIVE_MODULE_UNAVAILABLE: 'Notification native modules are not available. Please rebuild your development client.',
   UNKNOWN_ERROR: 'An unexpected error occurred with push notifications.',
 } as const
 
@@ -137,7 +168,7 @@ function getProjectId(): string | null {
   }
 
   // Check manifest for backwards compatibility
-  const manifest = Constants.manifest
+  const manifest = Constants.manifest as { extra?: { eas?: { projectId?: string } } } | null
   if (manifest?.extra?.eas?.projectId) {
     return manifest.extra.eas.projectId
   }
@@ -194,6 +225,15 @@ export function isPhysicalDevice(): boolean {
  * }
  */
 export async function getNotificationPermissions(): Promise<PermissionResult> {
+  const Notifications = await getNotificationsModule()
+  if (!Notifications) {
+    return {
+      granted: false,
+      canAskAgain: false,
+      error: notificationsLoadError || NOTIFICATION_ERRORS.NATIVE_MODULE_UNAVAILABLE,
+    }
+  }
+
   try {
     const settings = await Notifications.getPermissionsAsync()
 
@@ -233,6 +273,15 @@ export async function getNotificationPermissions(): Promise<PermissionResult> {
  * }
  */
 export async function requestNotificationPermissions(): Promise<PermissionResult> {
+  const Notifications = await getNotificationsModule()
+  if (!Notifications) {
+    return {
+      granted: false,
+      canAskAgain: false,
+      error: notificationsLoadError || NOTIFICATION_ERRORS.NATIVE_MODULE_UNAVAILABLE,
+    }
+  }
+
   try {
     // Request permissions with iOS-specific options
     const settings = await Notifications.requestPermissionsAsync({
@@ -275,6 +324,14 @@ export async function requestNotificationPermissions(): Promise<PermissionResult
  * @returns The Expo push token string or null on failure
  */
 export async function getExpoPushTokenAsync(): Promise<{ token: string | null; error: string | null }> {
+  const Notifications = await getNotificationsModule()
+  if (!Notifications) {
+    return {
+      token: null,
+      error: notificationsLoadError || NOTIFICATION_ERRORS.NATIVE_MODULE_UNAVAILABLE,
+    }
+  }
+
   try {
     // Verify physical device
     if (!isPhysicalDevice()) {
@@ -404,6 +461,16 @@ export async function registerPushToken(
 export async function registerForPushNotifications(
   userId: string | null | undefined
 ): Promise<TokenRegistrationResult> {
+  // Check if notifications module is available
+  const Notifications = await getNotificationsModule()
+  if (!Notifications) {
+    return {
+      success: false,
+      token: null,
+      error: notificationsLoadError || NOTIFICATION_ERRORS.NATIVE_MODULE_UNAVAILABLE,
+    }
+  }
+
   // Validate user ID
   if (!userId) {
     return {

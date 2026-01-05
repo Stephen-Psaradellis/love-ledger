@@ -41,11 +41,10 @@ import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 
 import { Button, OutlineButton } from '../../../components/Button'
-import { useProfilePhotos } from '../../../hooks/useProfilePhotos'
+import { useProfilePhotos, type ProfilePhotoWithTimeout } from '../../../hooks/useProfilePhotos'
 import { pickSelfieFromCamera, pickSelfieFromGallery } from '../../../utils/imagePicker'
-import { lightFeedback, successFeedback } from '../../../lib/haptics'
+import { lightFeedback, successFeedback, errorFeedback } from '../../../lib/haptics'
 import { COLORS, sharedStyles } from '../styles'
-import type { ProfilePhotoWithUrl } from '../../../lib/profilePhotos'
 
 // ============================================================================
 // TYPES
@@ -98,18 +97,21 @@ const TILE_SIZE = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1
 // ============================================================================
 
 interface PhotoTileProps {
-  photo: ProfilePhotoWithUrl
+  photo: ProfilePhotoWithTimeout
   isSelected: boolean
   onSelect: () => void
+  onDelete?: () => void
 }
 
 const PhotoTile = memo(function PhotoTile({
   photo,
   isSelected,
   onSelect,
+  onDelete,
 }: PhotoTileProps) {
   const isApproved = photo.moderation_status === 'approved'
   const isPending = photo.moderation_status === 'pending'
+  const isTimedOut = photo.isTimedOut
 
   return (
     <TouchableOpacity
@@ -141,12 +143,25 @@ const PhotoTile = memo(function PhotoTile({
         </View>
       )}
 
-      {/* Pending indicator */}
-      {isPending && (
+      {/* Pending indicator (not timed out) */}
+      {isPending && !isTimedOut && (
         <View style={styles.pendingOverlay}>
           <ActivityIndicator size="small" color="#FFFFFF" />
           <Text style={styles.pendingText}>Checking...</Text>
         </View>
+      )}
+
+      {/* Timed out indicator with delete option */}
+      {isPending && isTimedOut && (
+        <TouchableOpacity
+          style={styles.timedOutOverlay}
+          onPress={onDelete}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="alert-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.timedOutText}>Timed out</Text>
+          <Text style={styles.timedOutSubtext}>Tap to delete</Text>
+        </TouchableOpacity>
       )}
 
       {/* Rejected indicator */}
@@ -220,7 +235,9 @@ export const PhotoStep = memo(function PhotoStep({
     uploading,
     error,
     hasReachedLimit,
+    hasTimedOutPhotos,
     uploadPhoto,
+    deletePhoto,
     refresh,
     clearError,
   } = useProfilePhotos()
@@ -288,6 +305,25 @@ export const PhotoStep = memo(function PhotoStep({
     await lightFeedback()
     onPhotoSelect(photoId)
   }, [onPhotoSelect])
+
+  // Handle deleting a timed-out photo
+  const handleDeleteTimedOutPhoto = useCallback(async (photoId: string) => {
+    await errorFeedback()
+    Alert.alert(
+      'Delete Photo',
+      'Photo verification timed out. Delete this photo and try again?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deletePhoto(photoId)
+          },
+        },
+      ]
+    )
+  }, [deletePhoto])
 
   // Navigate to profile
   const handleGoToProfile = useCallback(() => {
@@ -399,6 +435,7 @@ export const PhotoStep = memo(function PhotoStep({
               photo={photo}
               isSelected={photo.id === selectedPhotoId}
               onSelect={() => handleSelectPhoto(photo.id)}
+              onDelete={() => handleDeleteTimedOutPhoto(photo.id)}
             />
           ))}
 
@@ -419,12 +456,22 @@ export const PhotoStep = memo(function PhotoStep({
           </View>
         )}
 
-        {/* Pending photos notice */}
-        {photos.some((p) => p.moderation_status === 'pending') && (
+        {/* Pending photos notice (not timed out) */}
+        {photos.some((p) => p.moderation_status === 'pending' && !p.isTimedOut) && (
           <View style={styles.pendingNotice}>
             <Ionicons name="information-circle-outline" size={18} color="#FF9500" />
             <Text style={styles.pendingNoticeText}>
               Some photos are being verified. This usually takes a few seconds.
+            </Text>
+          </View>
+        )}
+
+        {/* Timed out photos notice */}
+        {hasTimedOutPhotos && (
+          <View style={styles.timedOutNotice}>
+            <Ionicons name="alert-circle-outline" size={18} color="#FF3B30" />
+            <Text style={styles.timedOutNoticeText}>
+              Some photos failed to verify. Tap them to delete and try again.
             </Text>
           </View>
         )}
@@ -632,6 +679,39 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     color: '#996600',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  timedOutOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 59, 48, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timedOutText: {
+    marginTop: 2,
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  timedOutSubtext: {
+    marginTop: 2,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 9,
+  },
+  timedOutNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEB',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  timedOutNoticeText: {
+    marginLeft: 8,
+    flex: 1,
+    color: '#CC0000',
     fontSize: 13,
     lineHeight: 18,
   },

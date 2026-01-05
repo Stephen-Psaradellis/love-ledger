@@ -35,15 +35,12 @@ import {
   type TutorialFeature,
 } from '../utils/tutorialStorage'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import {
-  LargeAvatarPreview,
-  type StoredAvatar,
-} from '../components/ReadyPlayerMe'
+import { LgAvatarDisplay } from '../components/avatar'
+import type { StoredCustomAvatar } from '../components/avatar/types'
 import { ProfilePhotoGallery } from '../components/ProfilePhotoGallery'
 import {
   loadCurrentUserAvatar,
-  deleteCurrentUserAvatar,
-} from '../lib/avatarService'
+} from '../lib/avatar/storage'
 import {
   deleteAccountAndSignOut,
   getDeletionStatus,
@@ -104,8 +101,8 @@ export function ProfileScreen(): React.ReactNode {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isSavingAvatar, setIsSavingAvatar] = useState(false)
-  const [rpmAvatar, setRpmAvatar] = useState<StoredAvatar | null>(null)
-  const [isLoadingRpmAvatar, setIsLoadingRpmAvatar] = useState(true)
+  const [userAvatar, setUserAvatar] = useState<StoredCustomAvatar | null>(null)
+  const [isLoadingAvatar, setIsLoadingAvatar] = useState(true)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [deletionStatus, setDeletionStatus] = useState<DeletionStatus | null>(null)
 
@@ -116,16 +113,16 @@ export function ProfileScreen(): React.ReactNode {
   // EFFECTS
   // ---------------------------------------------------------------------------
 
-  // Load RPM avatar when screen comes into focus (to catch updates from avatar creator)
+  // Load avatar when screen comes into focus (to catch updates from avatar creator)
   useFocusEffect(
     useCallback(() => {
-      async function loadRpmAvatar() {
-        setIsLoadingRpmAvatar(true)
+      async function loadAvatar() {
+        setIsLoadingAvatar(true)
         const result = await loadCurrentUserAvatar()
-        setRpmAvatar(result.avatar)
-        setIsLoadingRpmAvatar(false)
+        setUserAvatar(result.avatar)
+        setIsLoadingAvatar(false)
       }
-      loadRpmAvatar()
+      loadAvatar()
     }, [])
   )
 
@@ -331,46 +328,11 @@ export function ProfileScreen(): React.ReactNode {
   }, [])
 
   /**
-   * Navigate to RPM avatar creator
+   * Navigate to avatar creator
    */
-  const handleOpenRpmAvatarCreator = useCallback(() => {
+  const handleOpenAvatarCreator = useCallback(() => {
     navigation.navigate('AvatarBuilder')
   }, [navigation])
-
-  /**
-   * Remove RPM avatar from profile
-   */
-  const handleRemoveRpmAvatar = useCallback(async () => {
-    await warningFeedback()
-
-    Alert.alert(
-      'Remove Avatar',
-      'Are you sure you want to remove your avatar?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setIsSavingAvatar(true)
-            const result = await deleteCurrentUserAvatar()
-            if (result.success) {
-              await successFeedback()
-              setRpmAvatar(null)
-            } else {
-              await errorFeedback()
-              Alert.alert('Error', result.error || 'Failed to remove avatar')
-            }
-            setIsSavingAvatar(false)
-          },
-        },
-      ],
-      { cancelable: true }
-    )
-  }, [])
 
   /**
    * Handle verification CTA - show info about verification process
@@ -588,33 +550,26 @@ export function ProfileScreen(): React.ReactNode {
           Your avatar helps others recognize and match with you
         </Text>
         <View style={styles.avatarSection}>
-          {isLoadingRpmAvatar ? (
+          {isLoadingAvatar ? (
             <View style={styles.avatarLoading}>
               <LoadingSpinner message="Loading avatar..." />
             </View>
-          ) : rpmAvatar ? (
-            <View style={styles.avatarConfigured} testID="profile-rpm-avatar-preview">
-              <LargeAvatarPreview
-                avatarId={rpmAvatar.avatarId}
+          ) : userAvatar ? (
+            <View style={styles.avatarConfigured} testID="profile-avatar-preview">
+              <LgAvatarDisplay
+                avatar={userAvatar}
                 fullBody
               />
-              <View style={styles.rpmAvatarInfo}>
-                <Text style={styles.rpmAvatarLabel}>Ready Player Me Avatar</Text>
+              <View style={styles.avatarInfo}>
+                <Text style={styles.avatarLabel}>Your Avatar</Text>
               </View>
               <View style={styles.avatarActions}>
                 <Button
                   title="Edit Avatar"
-                  onPress={handleOpenRpmAvatarCreator}
+                  onPress={handleOpenAvatarCreator}
                   size="small"
                   disabled={isSavingAvatar}
-                  testID="profile-edit-rpm-avatar-button"
-                />
-                <OutlineButton
-                  title="Remove"
-                  onPress={handleRemoveRpmAvatar}
-                  size="small"
-                  disabled={isSavingAvatar}
-                  testID="profile-remove-rpm-avatar-button"
+                  testID="profile-edit-avatar-button"
                 />
               </View>
             </View>
@@ -624,12 +579,12 @@ export function ProfileScreen(): React.ReactNode {
                 <Text style={styles.avatarPlaceholderEmoji}>👤</Text>
               </View>
               <Text style={styles.avatarEmptyText}>
-                Create your personalized avatar using Ready Player Me.
+                Create your personalized avatar.
                 Customize your face, body, hair, and clothing!
               </Text>
               <Button
                 title="Create Avatar"
-                onPress={handleOpenRpmAvatarCreator}
+                onPress={handleOpenAvatarCreator}
                 disabled={isSavingAvatar}
                 testID="profile-create-avatar-button"
               />
@@ -949,10 +904,10 @@ const styles = StyleSheet.create({
   avatarConfigured: {
     gap: 12,
   },
-  rpmAvatarInfo: {
+  avatarInfo: {
     paddingHorizontal: 12,
   },
-  rpmAvatarLabel: {
+  avatarLabel: {
     fontSize: 14,
     color: '#666666',
     fontWeight: '500',

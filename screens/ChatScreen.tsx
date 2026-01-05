@@ -156,6 +156,9 @@ function useChatMessages(conversationId: string, userId: string | null) {
   const [loadingMore, setLoadingMore] = useState(false)
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null)
   const lastMessageHapticRef = useRef<number>(0)
+  // Use a ref for messages to avoid recreating fetchMessages when messages change
+  const messagesRef = useRef<Message[]>(messages)
+  messagesRef.current = messages
 
   const fetchMessages = useCallback(async (isRefresh = false, lastMessageId?: string) => {
     if (!isRefresh && !lastMessageId) {
@@ -174,7 +177,8 @@ function useChatMessages(conversationId: string, userId: string | null) {
         .limit(MESSAGES_PER_PAGE)
 
       if (lastMessageId) {
-        const lastMessage = messages.find(m => m.id === lastMessageId)
+        // Use ref to access current messages without adding to dependencies
+        const lastMessage = messagesRef.current.find(m => m.id === lastMessageId)
         if (lastMessage) {
           query = query.lt('created_at', lastMessage.created_at)
         }
@@ -208,7 +212,7 @@ function useChatMessages(conversationId: string, userId: string | null) {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [conversationId, messages])
+  }, [conversationId])
 
   const markMessagesAsRead = useCallback(async () => {
     if (!userId || messages.length === 0) return
@@ -722,10 +726,12 @@ export function ChatScreen(): React.ReactNode {
   // EFFECTS
   // ---------------------------------------------------------------------------
 
+  // Initial load - only run once on mount
+  // Using conversationId as dependency to reload if conversation changes
   useEffect(() => {
-    setConversationLoading(true)
     loadData()
-  }, [loadData])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId])
 
   // ---------------------------------------------------------------------------
   // EVENT HANDLERS
@@ -932,7 +938,11 @@ export function ChatScreen(): React.ReactNode {
   // ---------------------------------------------------------------------------
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       {messagesLoading && messages.length === 0 ? (
@@ -955,6 +965,8 @@ export function ChatScreen(): React.ReactNode {
             onRefresh={handleRefresh}
             scrollEnabled
             nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
           />
 
           {renderInput()}
@@ -986,7 +998,7 @@ export function ChatScreen(): React.ReactNode {
         onSharePhoto={handleSharePhoto}
         sharing={sharingPhoto}
       />
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 

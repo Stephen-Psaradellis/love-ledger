@@ -42,8 +42,8 @@ export type {
   Database,
 } from '../types/database'
 
-// Avatar types (Ready Player Me)
-export type { StoredAvatar, RPMAvatarData } from '../components/ReadyPlayerMe'
+// Avatar types (Custom SVG Avatar System)
+export type { CustomAvatarConfig, StoredCustomAvatar } from '../components/avatar/types'
 
 // ============================================================================
 // APPLICATION-SPECIFIC TYPES
@@ -147,7 +147,7 @@ export interface AuthFormData {
  */
 export interface CreatePostFormData {
   locationId: string
-  targetAvatar: import('../components/ReadyPlayerMe').StoredAvatar | null
+  targetAvatar: import('../components/avatar/types').StoredCustomAvatar | null
   note: string
   selfieUri: string | null
 }

@@ -37,7 +37,8 @@ import {
   Platform,
 } from 'react-native'
 
-import { MediumAvatarPreview, type StoredAvatar } from '../../../components/ReadyPlayerMe'
+import { MdAvatarDisplay } from '../../../components/avatar'
+import type { StoredCustomAvatar } from '../../../components/avatar/types'
 import { Button, OutlineButton } from '../../../components/Button'
 import { MIN_NOTE_LENGTH, MAX_NOTE_LENGTH } from '../types'
 import { COLORS, sharedStyles } from '../styles'
@@ -53,7 +54,7 @@ export interface NoteStepProps {
   /**
    * Avatar for the target person preview
    */
-  avatar: StoredAvatar | null
+  avatar: StoredCustomAvatar | null
 
   /**
    * Current note text value
@@ -130,7 +131,7 @@ export const NoteStep = memo(function NoteStep({
         {/* Avatar preview */}
         <View style={styles.avatarPreviewRow}>
           <View style={styles.avatarPreviewWrapper}>
-            {avatar && <MediumAvatarPreview avatarId={avatar.avatarId} />}
+            {avatar && <MdAvatarDisplay avatar={avatar} />}
           </View>
           <Text style={styles.avatarPreviewLabel}>
             You're writing to this person

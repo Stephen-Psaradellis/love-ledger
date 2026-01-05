@@ -17,7 +17,7 @@ import * as Linking from 'expo-linking'
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native'
 
 import { useAuth } from '../contexts/AuthContext'
-import { SmallAvatarPreview } from '../components/ReadyPlayerMe'
+import { SmAvatarDisplay } from '../components/avatar'
 import { AnimatedTabBar } from '../components/navigation/AnimatedTabBar'
 import { AuthScreen } from '../screens/AuthScreen'
 import { ProfileScreen } from '../screens/ProfileScreen'
@@ -75,7 +75,7 @@ function LinkingFallback() {
 function HeaderAvatar({ onPress }: { onPress?: () => void }) {
   const { profile } = useAuth()
 
-  const hasAvatar = profile?.rpm_avatar_id
+  const hasAvatar = profile?.avatar
 
   return (
     <TouchableOpacity
@@ -85,8 +85,8 @@ function HeaderAvatar({ onPress }: { onPress?: () => void }) {
       activeOpacity={0.7}
     >
       {hasAvatar ? (
-        <SmallAvatarPreview
-          avatarId={profile.rpm_avatar_id!}
+        <SmAvatarDisplay
+          avatar={profile.avatar}
           testID="header-avatar-preview"
         />
       ) : (

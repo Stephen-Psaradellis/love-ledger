@@ -1,7 +1,8 @@
 /**
- * AvatarCreationStep Component
+ * AvatarCreationStep Component (Web)
  *
- * Onboarding-specific avatar creation step that provides a simplified UI
+ * Onboarding-specific avatar creation step for the web app.
+ * Uses the new CustomAvatarConfig system with a simplified UI
  * for quick avatar creation. Features:
  * - Auto-generated initial avatar
  * - Prominent "Randomize" button for quick changes
@@ -11,19 +12,14 @@
  * Designed for <30 second completion to meet onboarding time target.
  */
 
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { Button } from '../ui/Button'
 import { getStepById } from '../../lib/onboarding/onboardingConfig'
+import type { CustomAvatarConfig } from '../avatar/types'
 import {
-  AvatarConfig,
-  AVATAR_OPTIONS,
-} from '../../types/avatar'
-
-// Placeholder for legacy DiceBear avatar - this component needs to be migrated to RPM
-const createAvatarDataUri = (_config: AvatarConfig, _size: number): string => {
-  // Return a placeholder image data URI
-  return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="%23f0f0f0"/><circle cx="50" cy="40" r="20" fill="%23ccc"/><ellipse cx="50" cy="80" rx="30" ry="20" fill="%23ccc"/></svg>'
-}
+  generateRandomAvatarConfig,
+  DEFAULT_AVATAR_CONFIG,
+} from '../../lib/avatar/defaults'
 
 // ============================================================================
 // Types
@@ -31,13 +27,13 @@ const createAvatarDataUri = (_config: AvatarConfig, _size: number): string => {
 
 export interface AvatarCreationStepProps {
   /** Callback when user clicks "Continue" - passes the avatar config */
-  onContinue: (avatarConfig: AvatarConfig) => void
+  onContinue: (avatarConfig: CustomAvatarConfig) => void
   /** Callback when user clicks "Skip" */
   onSkip: () => void
   /** Callback when user clicks "Back" */
   onBack: () => void
   /** Initial avatar configuration (for resume functionality) */
-  initialConfig?: Partial<AvatarConfig>
+  initialConfig?: Partial<CustomAvatarConfig>
   /** Whether the continue action is loading */
   isLoading?: boolean
   /** Additional CSS classes for the container */
@@ -51,19 +47,19 @@ export interface AvatarCreationStepProps {
 /** Primary attributes for simplified customization */
 const QUICK_CUSTOMIZE_OPTIONS = [
   {
-    key: 'skinColor' as const,
+    key: 'skinTone' as const,
     label: 'Skin',
-    options: AVATAR_OPTIONS.skinColor,
+    options: ['light', 'fair', 'medium', 'olive', 'tan', 'brown', 'dark', 'deep'],
   },
   {
-    key: 'topType' as const,
+    key: 'hairStyle' as const,
     label: 'Hair',
-    options: AVATAR_OPTIONS.topType.slice(0, 12), // Limit options for speed
+    options: ['short', 'medium', 'long', 'buzz', 'curly', 'wavy', 'afro', 'bald'],
   },
   {
     key: 'hairColor' as const,
     label: 'Hair Color',
-    options: AVATAR_OPTIONS.hairColor,
+    options: ['black', 'darkBrown', 'brown', 'auburn', 'blonde', 'platinum', 'red', 'gray'],
   },
 ] as const
 
@@ -72,45 +68,18 @@ const QUICK_CUSTOMIZE_OPTIONS = [
 // ============================================================================
 
 /**
- * Get a random option from an array
- */
-function getRandomOption<T>(options: readonly T[]): T {
-  return options[Math.floor(Math.random() * options.length)]
-}
-
-/**
- * Generate a random avatar configuration
- */
-function generateRandomConfig(): AvatarConfig {
-  return {
-    avatarStyle: 'Circle',
-    topType: getRandomOption(AVATAR_OPTIONS.topType),
-    hairColor: getRandomOption(AVATAR_OPTIONS.hairColor),
-    accessoriesType: getRandomOption(AVATAR_OPTIONS.accessoriesType),
-    facialHairType: getRandomOption(AVATAR_OPTIONS.facialHairType),
-    facialHairColor: getRandomOption(AVATAR_OPTIONS.facialHairColor),
-    clotheType: getRandomOption(AVATAR_OPTIONS.clotheType),
-    clotheColor: getRandomOption(AVATAR_OPTIONS.clotheColor),
-    eyeType: getRandomOption(AVATAR_OPTIONS.eyeType),
-    eyebrowType: getRandomOption(AVATAR_OPTIONS.eyebrowType),
-    mouthType: getRandomOption(AVATAR_OPTIONS.mouthType),
-    skinColor: getRandomOption(AVATAR_OPTIONS.skinColor),
-  }
-}
-
-/**
- * Format option label from camelCase/PascalCase to readable text
+ * Format option label from camelCase/snake_case to readable text
  */
 function formatOptionLabel(value: string): string {
   // Handle special cases
-  if (value === 'NoHair') return 'None'
-  if (value === 'Blank') return 'None'
+  if (value === 'bald') return 'None'
+  if (value === 'none') return 'None'
 
-  // Convert PascalCase/camelCase to words
+  // Convert camelCase to words
   return value
     .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
     .replace(/^./, (str) => str.toUpperCase())
-    .replace(/\d+/g, ' $&')
     .trim()
 }
 
@@ -119,19 +88,39 @@ function formatOptionLabel(value: string): string {
 // ============================================================================
 
 /**
- * Avatar preview with animation feedback and entrance animation
+ * Avatar preview placeholder for web
+ * TODO: Replace with actual SVG rendering when react-native-svg-web is configured
  */
 const AvatarPreviewSection = memo(function AvatarPreviewSection({
   config,
   isAnimating,
 }: {
-  config: AvatarConfig
+  config: CustomAvatarConfig
   isAnimating: boolean
 }) {
-  const avatarDataUri = useMemo(
-    () => createAvatarDataUri(config, 200),
-    [config]
-  )
+  // Generate a simple placeholder based on config
+  const skinColor = {
+    light: '#FDEBD0',
+    fair: '#F5D5C8',
+    medium: '#E5B299',
+    olive: '#C9A66B',
+    tan: '#A67B5B',
+    brown: '#8B5A2B',
+    dark: '#5D4037',
+    deep: '#3E2723',
+  }[config.skinTone] || '#E5B299'
+
+  const hairColor = {
+    black: '#1A1A1A',
+    darkBrown: '#3D2314',
+    brown: '#6B4423',
+    auburn: '#922724',
+    blonde: '#D4A76A',
+    platinum: '#E8E4C9',
+    red: '#B7410E',
+    gray: '#808080',
+    white: '#FFFFFF',
+  }[config.hairColor] || '#3D2314'
 
   return (
     <div
@@ -146,17 +135,38 @@ const AvatarPreviewSection = memo(function AvatarPreviewSection({
         ${isAnimating ? 'scale-95' : 'scale-100 hover:scale-[1.02]'}
       `}
     >
-      {/* Avatar image */}
-      <img
-        src={avatarDataUri}
-        alt="Your avatar preview"
+      {/* Simple avatar placeholder using CSS */}
+      <div
         className={`
           w-32 h-32 sm:w-40 sm:h-40 rounded-full
+          flex items-center justify-center
           transition-all duration-300
           ${isAnimating ? 'opacity-70 scale-95' : 'opacity-100 scale-100'}
         `}
-        draggable={false}
-      />
+        style={{ backgroundColor: skinColor }}
+      >
+        {/* Hair (simplified) */}
+        {config.hairStyle !== 'bald' && (
+          <div
+            className="absolute top-2 sm:top-3 w-24 sm:w-28 h-12 sm:h-14 rounded-t-full"
+            style={{ backgroundColor: hairColor }}
+          />
+        )}
+        {/* Face features placeholder */}
+        <div className="flex flex-col items-center gap-2">
+          {/* Eyes */}
+          <div className="flex gap-4">
+            <div className="w-3 h-3 bg-white rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-gray-800 rounded-full" />
+            </div>
+            <div className="w-3 h-3 bg-white rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-gray-800 rounded-full" />
+            </div>
+          </div>
+          {/* Mouth */}
+          <div className="w-6 h-2 bg-pink-400 rounded-full mt-2" />
+        </div>
+      </div>
 
       {/* Loading indicator overlay */}
       {isAnimating && (
@@ -216,7 +226,7 @@ const QuickOptionSelector = memo(function QuickOptionSelector({
 })
 
 /**
- * Quick action buttons (Randomize / Reset) with enhanced transitions
+ * Quick action buttons (Randomize) with enhanced transitions
  */
 const QuickActions = memo(function QuickActions({
   onRandomize,
@@ -295,8 +305,9 @@ function AvatarCreationStepComponent({
   const stepConfig = getStepById('avatar')
 
   // State for avatar configuration - start with provided config or random
-  const [config, setConfig] = useState<AvatarConfig>(() => ({
-    ...generateRandomConfig(),
+  const [config, setConfig] = useState<CustomAvatarConfig>(() => ({
+    ...DEFAULT_AVATAR_CONFIG,
+    ...generateRandomAvatarConfig(),
     ...initialConfig,
   }))
 
@@ -318,7 +329,7 @@ function AvatarCreationStepComponent({
 
     // Short delay for animation feedback
     setTimeout(() => {
-      setConfig(generateRandomConfig())
+      setConfig(generateRandomAvatarConfig())
       setIsAnimating(false)
     }, 200)
   }, [])
@@ -327,7 +338,7 @@ function AvatarCreationStepComponent({
    * Update a specific attribute
    */
   const handleAttributeChange = useCallback(
-    (attribute: keyof AvatarConfig, value: string) => {
+    (attribute: keyof CustomAvatarConfig, value: string) => {
       setConfig((prev) => ({
         ...prev,
         [attribute]: value,

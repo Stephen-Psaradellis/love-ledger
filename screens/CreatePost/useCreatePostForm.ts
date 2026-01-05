@@ -45,7 +45,7 @@ import { useLocation } from '../../hooks/useLocation'
 import { useVisitedLocations, useNearbyLocations } from '../../hooks/useNearbyLocations'
 import { supabase } from '../../lib/supabase'
 import { recordLocationVisit } from '../../lib/utils/geo'
-import type { StoredAvatar } from '../../components/ReadyPlayerMe'
+import type { StoredCustomAvatar } from '../../components/avatar/types'
 import type { MainStackNavigationProp, CreatePostRouteProp } from '../../navigation/types'
 import type { Location as LocationEntity, LocationWithVisit } from '../../lib/types'
 import type { TimeGranularity } from '../../types/database'
@@ -137,9 +137,9 @@ export interface UseCreatePostFormResult {
   /** Handle next step navigation */
   handleNext: () => void
   /** Handle avatar save */
-  handleAvatarSave: (avatar: StoredAvatar) => void
+  handleAvatarSave: (avatar: StoredCustomAvatar) => void
   /** Handle avatar change (without advancing step) */
-  handleAvatarChange: (avatar: StoredAvatar) => void
+  handleAvatarChange: (avatar: StoredCustomAvatar) => void
   /** Handle location selection */
   handleLocationSelect: (location: LocationItem) => void
   /** Handle note text change */
@@ -482,14 +482,14 @@ export function useCreatePostForm(
   /**
    * Handle avatar change (without advancing step)
    */
-  const handleAvatarChange = useCallback((avatar: StoredAvatar) => {
+  const handleAvatarChange = useCallback((avatar: StoredCustomAvatar) => {
     setFormData((prev) => ({ ...prev, targetAvatar: avatar }))
   }, [])
 
   /**
    * Handle avatar save
    */
-  const handleAvatarSave = useCallback((avatar: StoredAvatar) => {
+  const handleAvatarSave = useCallback((avatar: StoredCustomAvatar) => {
     setFormData((prev) => ({ ...prev, targetAvatar: avatar }))
     // Advance to next step after save
     const currentIndex = STEPS.findIndex((s) => s.id === 'avatar')
@@ -582,7 +582,7 @@ export function useCreatePostForm(
           producer_id: userId,
           location_id: locationId,
           photo_id: formData.selectedPhotoId,
-          target_rpm_avatar: formData.targetAvatar,
+          target_avatar_v2: formData.targetAvatar,
           message: formData.note.trim(),
           // selfie_url is required but we use photo_id for new posts
           // Use the storage path from the profile_photo for backwards compatibility

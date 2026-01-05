@@ -13,10 +13,11 @@
  * Environment variables required:
  * - GOOGLE_CLOUD_VISION_API_KEY: API key for Google Cloud Vision
  * - SUPABASE_URL: Supabase project URL (auto-injected)
- * - SUPABASE_SECRET_KEY: Service role key (auto-injected)
+ * - SUPABASE_SERVICE_ROLE_KEY: Service role key (auto-injected)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { encode as base64Encode } from 'https://deno.land/std@0.168.0/encoding/base64.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // SafeSearch likelihood levels
@@ -112,6 +113,15 @@ async function moderateImage(
 ): Promise<SafeSearchResult> {
   const visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`
 
+  // Debug: log image content info
+  console.log('Image base64 length:', imageBase64?.length ?? 'null/undefined')
+  console.log('Image base64 first 100 chars:', imageBase64?.substring(0, 100) ?? 'null')
+  console.log('API key present:', !!apiKey)
+
+  if (!imageBase64 || imageBase64.length === 0) {
+    throw new Error('Image base64 content is empty')
+  }
+
   const requestBody = {
     requests: [
       {
@@ -126,6 +136,13 @@ async function moderateImage(
       },
     ],
   }
+
+  console.log('Request body structure:', JSON.stringify({
+    requests: [{
+      image: { content: `[${imageBase64.length} chars]` },
+      features: requestBody.requests[0].features
+    }]
+  }))
 
   const response = await fetch(visionApiUrl, {
     method: 'POST',
@@ -185,8 +202,9 @@ serve(async (req) => {
 
   try {
     // Get environment variables
+    // Note: Supabase auto-injects SUPABASE_SERVICE_ROLE_KEY (not SUPABASE_SECRET_KEY)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SECRET_KEY')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const visionApiKey = Deno.env.get('GOOGLE_CLOUD_VISION_API_KEY')
 
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -215,20 +233,24 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Download the image from Supabase Storage
+    console.log('Downloading image from selfies bucket, path:', storage_path)
     const { data: imageData, error: downloadError } = await supabase.storage
       .from('selfies')
       .download(storage_path)
 
     if (downloadError || !imageData) {
       console.error('Failed to download image:', downloadError)
+      console.error('Download error details:', JSON.stringify(downloadError, null, 2))
+      console.error('Storage path attempted:', storage_path)
+      console.error('Supabase URL:', supabaseUrl)
       // Update status to error
       await supabase.rpc('update_photo_moderation', {
         p_photo_id: photo_id,
         p_status: 'error',
-        p_result: { error: 'Failed to download image' },
+        p_result: { error: 'Failed to download image', path: storage_path },
       })
       return new Response(
-        JSON.stringify({ error: 'Failed to download image', details: downloadError }),
+        JSON.stringify({ error: 'Failed to download image', details: downloadError, path: storage_path }),
         {
           status: 500,
           headers: { 'Content-Type': 'application/json' },
@@ -236,14 +258,31 @@ serve(async (req) => {
       )
     }
 
-    // Convert blob to base64
+    // Convert blob to base64 using Deno's standard library
+    console.log('imageData type:', typeof imageData)
+    console.log('imageData size:', imageData.size)
+    console.log('imageData type property:', imageData.type)
+
     const arrayBuffer = await imageData.arrayBuffer()
-    const base64Image = btoa(
-      new Uint8Array(arrayBuffer).reduce(
-        (data, byte) => data + String.fromCharCode(byte),
-        ''
-      )
-    )
+    console.log('arrayBuffer byteLength:', arrayBuffer.byteLength)
+
+    const uint8Array = new Uint8Array(arrayBuffer)
+    console.log('uint8Array length:', uint8Array.length)
+
+    // Use standard base64 encoding for Deno
+    let base64Image: string
+    try {
+      base64Image = base64Encode(uint8Array)
+      console.log('base64Encode result length:', base64Image.length)
+    } catch (encodeError) {
+      console.error('base64Encode failed:', encodeError)
+      // Fallback: try manual encoding
+      const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('')
+      base64Image = btoa(binaryString)
+      console.log('btoa fallback result length:', base64Image.length)
+    }
+
+    console.log('Final base64 length:', base64Image.length)
 
     // Call Google Cloud Vision API
     let safeSearchResult: SafeSearchResult

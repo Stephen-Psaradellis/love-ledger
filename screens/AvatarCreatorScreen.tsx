@@ -1,7 +1,8 @@
 /**
  * AvatarCreatorScreen
  *
- * Screen for creating and editing avatars using Ready Player Me.
+ * Screen for creating and editing custom avatars.
+ * Replaces the former Ready Player Me integration with a native SVG avatar builder.
  */
 
 import React, { useState, useCallback, useEffect } from 'react'
@@ -16,17 +17,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import {
-  ReadyPlayerMeCreator,
-  RPMAvatarPreview,
-  XLAvatarPreview,
-  toStoredAvatar,
-  type RPMAvatarData,
-  type StoredAvatar,
-} from '../components/ReadyPlayerMe'
+  AvatarCreator,
+  AvatarDisplay,
+  XLAvatarDisplay,
+} from '../components/avatar'
+import type {
+  CustomAvatarConfig,
+  StoredCustomAvatar,
+} from '../components/avatar/types'
 import {
   saveCurrentUserAvatar,
   loadCurrentUserAvatar,
-} from '../lib/avatarService'
+} from '../lib/avatar/storage'
+import { createStoredAvatar } from '../lib/avatar/defaults'
 
 // ============================================================================
 // Types
@@ -41,7 +44,7 @@ type ViewMode = 'preview' | 'creator'
 export function AvatarCreatorScreen(): React.ReactNode {
   const navigation = useNavigation()
   const [viewMode, setViewMode] = useState<ViewMode>('preview')
-  const [avatar, setAvatar] = useState<StoredAvatar | null>(null)
+  const [avatar, setAvatar] = useState<StoredCustomAvatar | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -59,11 +62,14 @@ export function AvatarCreatorScreen(): React.ReactNode {
   }, [])
 
   // Handle avatar creation complete
-  const handleAvatarCreated = useCallback(async (data: RPMAvatarData) => {
-    console.log('[AvatarCreatorScreen] Avatar created:', data)
+  const handleAvatarComplete = useCallback(async (config: CustomAvatarConfig) => {
+    console.log('[AvatarCreatorScreen] Avatar created:', config)
 
-    // Convert to stored format
-    const storedAvatar = toStoredAvatar(data)
+    // Create stored avatar format
+    const storedAvatar = avatar
+      ? { ...avatar, config, updatedAt: new Date().toISOString() }
+      : createStoredAvatar(config)
+
     setAvatar(storedAvatar)
     setViewMode('preview')
 
@@ -74,7 +80,7 @@ export function AvatarCreatorScreen(): React.ReactNode {
 
     if (result.success) {
       Alert.alert(
-        'Avatar Created!',
+        'Avatar Saved!',
         'Your avatar has been saved to your profile.',
         [{ text: 'OK' }]
       )
@@ -85,10 +91,10 @@ export function AvatarCreatorScreen(): React.ReactNode {
         [{ text: 'OK' }]
       )
     }
-  }, [])
+  }, [avatar])
 
   // Handle close/cancel
-  const handleClose = useCallback(() => {
+  const handleCancel = useCallback(() => {
     if (avatar) {
       // Return to preview mode
       setViewMode('preview')
@@ -111,14 +117,11 @@ export function AvatarCreatorScreen(): React.ReactNode {
   // Render creator mode
   if (viewMode === 'creator') {
     return (
-      <ReadyPlayerMeCreator
-        onAvatarCreated={handleAvatarCreated}
-        onClose={handleClose}
-        config={{
-          subdomain: process.env.EXPO_PUBLIC_RPM_SUBDOMAIN || 'backtrack',
-          bodyType: 'fullbody',
-          quickStart: true,
-        }}
+      <AvatarCreator
+        initialConfig={avatar?.config}
+        mode="self"
+        onComplete={handleAvatarComplete}
+        onCancel={handleCancel}
       />
     )
   }
@@ -161,8 +164,8 @@ export function AvatarCreatorScreen(): React.ReactNode {
           <>
             {/* Avatar preview */}
             <View style={styles.avatarContainer}>
-              <XLAvatarPreview
-                avatarId={avatar.avatarId}
+              <XLAvatarDisplay
+                avatar={avatar}
                 fullBody
                 testID="avatar-preview"
               />
@@ -170,14 +173,14 @@ export function AvatarCreatorScreen(): React.ReactNode {
 
             {/* Avatar info */}
             <View style={styles.infoContainer}>
-              <Text style={styles.infoLabel}>Avatar ID</Text>
-              <Text style={styles.infoValue}>{avatar.avatarId}</Text>
+              <Text style={styles.infoLabel}>Skin Tone</Text>
+              <Text style={styles.infoValue}>{avatar.config.skinTone}</Text>
+
+              <Text style={styles.infoLabel}>Hair Style</Text>
+              <Text style={styles.infoValue}>{avatar.config.hairStyle}</Text>
 
               <Text style={styles.infoLabel}>Body Type</Text>
-              <Text style={styles.infoValue}>{avatar.bodyType}</Text>
-
-              <Text style={styles.infoLabel}>Gender</Text>
-              <Text style={styles.infoValue}>{avatar.gender}</Text>
+              <Text style={styles.infoValue}>{avatar.config.bodyShape}</Text>
             </View>
 
             {/* Actions */}
@@ -206,7 +209,7 @@ export function AvatarCreatorScreen(): React.ReactNode {
               </View>
               <Text style={styles.emptyTitle}>No Avatar Yet</Text>
               <Text style={styles.emptyDescription}>
-                Create your personalized avatar using Ready Player Me.
+                Create your personalized avatar.
                 You can customize your face, body, hair, and clothing.
               </Text>
             </View>

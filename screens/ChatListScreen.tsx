@@ -33,7 +33,8 @@ import {
 } from 'react-native'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 
-import { MediumAvatarPreview, type StoredAvatar } from '../components/ReadyPlayerMe'
+import { MdAvatarDisplay } from '../components/avatar'
+import type { StoredCustomAvatar } from '../components/avatar/types'
 import { VerifiedBadge } from '../components/VerifiedBadge'
 import { lightFeedback } from '../lib/haptics'
 import { LoadingSpinner } from '../components/LoadingSpinner'
@@ -54,8 +55,8 @@ import type { RealtimeChannel, RealtimePostgresInsertPayload } from '@supabase/s
  * Conversation item with additional display information
  */
 interface ConversationItem extends Conversation {
-  /** The post's target RPM avatar for display */
-  target_rpm_avatar: StoredAvatar | null
+  /** The post's target avatar for display */
+  target_avatar_v2: StoredCustomAvatar | null
   /** Preview of the most recent message */
   last_message_content: string | null
   /** Timestamp of the most recent message */
@@ -280,7 +281,7 @@ export function ChatListScreen(): React.ReactNode {
           // Fetch post data separately to avoid nested join issues
           let postData: {
             id: string
-            target_rpm_avatar: StoredAvatar | null
+            target_avatar_v2: StoredCustomAvatar | null
             note: string
             location_id: string
           } | null = null
@@ -289,7 +290,7 @@ export function ChatListScreen(): React.ReactNode {
           if (conv.post_id) {
             const { data: post } = await supabase
               .from('posts')
-              .select('id, target_rpm_avatar, note, location_id')
+              .select('id, target_avatar_v2, note, location_id')
               .eq('id', conv.post_id)
               .maybeSingle()
 
@@ -309,7 +310,7 @@ export function ChatListScreen(): React.ReactNode {
 
           return {
             ...conv,
-            target_rpm_avatar: postData?.target_rpm_avatar || null,
+            target_avatar_v2: postData?.target_avatar_v2 || null,
             last_message_content: lastMessageData?.content || null,
             last_message_at: lastMessageData?.created_at || conv.updated_at,
             last_message_sender_id: lastMessageData?.sender_id || null,
@@ -483,9 +484,9 @@ export function ChatListScreen(): React.ReactNode {
         >
           {/* Avatar with optional verified badge */}
           <View style={styles.avatarContainer}>
-            {item.target_rpm_avatar?.avatarId ? (
+            {item.target_avatar_v2 ? (
               <>
-                <MediumAvatarPreview avatarId={item.target_rpm_avatar.avatarId} />
+                <MdAvatarDisplay avatar={item.target_avatar_v2} />
                 {item.other_user_is_verified && (
                   <View style={styles.verifiedBadgeContainer}>
                     <VerifiedBadge />
