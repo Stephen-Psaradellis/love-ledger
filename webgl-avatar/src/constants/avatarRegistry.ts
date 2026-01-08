@@ -240,8 +240,21 @@ export function getAvatarUrl(avatarId: string | AvatarPreset): string {
 
     // For unknown avatars, try constructing a CDN path
     // This handles dynamically loaded CDN avatars
-    if (id.includes('/') || id.includes('_')) {
-      // Already looks like a path or follows CDN naming convention
+
+    // Handle CDN avatar IDs that were created by replacing / with _
+    // Example: avatars_Black_Black_F_3_Util -> avatars/Black/Black_F_3_Util.glb
+    if (id.startsWith('avatars_')) {
+      const parts = id.split('_');
+      // parts[0] = 'avatars', parts[1] = ethnicity folder, rest = filename
+      if (parts.length >= 3) {
+        const ethnicity = parts[1];
+        const filename = parts.slice(2).join('_');
+        return `${CDN_SOURCE.baseUrl}avatars/${ethnicity}/${filename}.glb`;
+      }
+    }
+
+    // If it looks like a direct path with slashes
+    if (id.includes('/')) {
       return `${CDN_SOURCE.baseUrl}${id}${id.endsWith('.glb') ? '' : '.glb'}`;
     }
 

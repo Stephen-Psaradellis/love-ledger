@@ -11,14 +11,24 @@
       "Edit(./**)",
       "Glob(./**)",
       "Grep(./**)",
+      "Read(C:\\Users\\snpsa\\love-ledger/**)",
+      "Write(C:\\Users\\snpsa\\love-ledger/**)",
+      "Edit(C:\\Users\\snpsa\\love-ledger/**)",
+      "Glob(C:\\Users\\snpsa\\love-ledger/**)",
+      "Grep(C:\\Users\\snpsa\\love-ledger/**)",
+      "Read(C:\\Users\\snpsa\\love-ledger\\.auto-claude\\specs\\033-end-to-end-test-all-of-the-avatar-creator-features/**)",
+      "Write(C:\\Users\\snpsa\\love-ledger\\.auto-claude\\specs\\033-end-to-end-test-all-of-the-avatar-creator-features/**)",
+      "Edit(C:\\Users\\snpsa\\love-ledger\\.auto-claude\\specs\\033-end-to-end-test-all-of-the-avatar-creator-features/**)",
       "Bash(*)",
-      "mcp__context7__resolve-library-id",
-      "mcp__context7__get-library-docs",
-      "mcp__graphiti-memory__search_nodes",
-      "mcp__graphiti-memory__search_facts",
-      "mcp__graphiti-memory__add_episode",
-      "mcp__graphiti-memory__get_episodes",
-      "mcp__graphiti-memory__get_entity_edge"
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__get-library-docs(*)",
+      "mcp__graphiti-memory__search_nodes(*)",
+      "mcp__graphiti-memory__search_facts(*)",
+      "mcp__graphiti-memory__add_episode(*)",
+      "mcp__graphiti-memory__get_episodes(*)",
+      "mcp__graphiti-memory__get_entity_edge(*)"
     ]
   }
 }
