@@ -25,10 +25,7 @@
  * ```
  */
 
-import { createClient } from './supabase/client'
-
-// Get Supabase client instance
-const supabase = createClient()
+import { supabase } from './supabase'
 
 // ============================================================================
 // Types

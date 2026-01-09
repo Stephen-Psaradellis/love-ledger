@@ -5,7 +5,7 @@
  * Replaces lib/avatarService.ts for the new avatar system.
  */
 
-import { createClient } from '../supabase/client';
+import { supabase } from '../supabase';
 import type { StoredAvatar, AvatarConfig } from '../../components/avatar/types';
 import { createStoredAvatar, normalizeStoredAvatar } from './defaults';
 
@@ -36,8 +36,7 @@ export async function saveUserAvatar(
   avatar: StoredAvatar
 ): Promise<AvatarSaveResult> {
   try {
-    const supabase = createClient();
-
+    
     // Update the avatar's updatedAt timestamp
     const updatedAvatar: StoredAvatar = {
       ...avatar,
@@ -81,8 +80,7 @@ export async function saveCurrentUserAvatar(
   avatar: StoredAvatar
 ): Promise<AvatarSaveResult> {
   try {
-    const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return { success: false, error: 'Not authenticated' };
@@ -112,8 +110,7 @@ export async function loadUserAvatar(
   userId: string
 ): Promise<AvatarLoadResult> {
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
+        const { data, error } = await supabase
       .from('profiles')
       .select('avatar, avatar_version')
       .eq('id', userId)
@@ -143,8 +140,7 @@ export async function loadUserAvatar(
  */
 export async function loadCurrentUserAvatar(): Promise<AvatarLoadResult> {
   try {
-    const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return { avatar: null, error: 'Not authenticated' };
@@ -164,8 +160,7 @@ export async function deleteUserAvatar(
   userId: string
 ): Promise<AvatarSaveResult> {
   try {
-    const supabase = createClient();
-    const { error } = await supabase
+        const { error } = await supabase
       .from('profiles')
       .update({
         avatar: null,
@@ -193,8 +188,7 @@ export async function deleteUserAvatar(
  */
 export async function deleteCurrentUserAvatar(): Promise<AvatarSaveResult> {
   try {
-    const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return { success: false, error: 'Not authenticated' };
@@ -212,8 +206,7 @@ export async function deleteCurrentUserAvatar(): Promise<AvatarSaveResult> {
  */
 export async function hasUserAvatar(userId: string): Promise<boolean> {
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
+        const { data, error } = await supabase
       .from('profiles')
       .select('avatar')
       .eq('id', userId)
@@ -234,8 +227,7 @@ export async function hasUserAvatar(userId: string): Promise<boolean> {
  */
 export async function hasCurrentUserAvatar(): Promise<boolean> {
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return false;
@@ -259,8 +251,7 @@ export async function updatePostTargetAvatar(
   avatar: StoredAvatar
 ): Promise<AvatarSaveResult> {
   try {
-    const supabase = createClient();
-    const { error } = await supabase
+        const { error } = await supabase
       .from('posts')
       .update({
         target_avatar_v2: avatar,
@@ -287,8 +278,7 @@ export async function loadPostTargetAvatar(
   postId: string
 ): Promise<AvatarLoadResult> {
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
+        const { data, error } = await supabase
       .from('posts')
       .select('target_avatar_v2')
       .eq('id', postId)
@@ -330,8 +320,7 @@ export async function loadMultipleUserAvatars(
   }
 
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
+        const { data, error } = await supabase
       .from('profiles')
       .select('id, avatar')
       .in('id', userIds);

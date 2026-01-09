@@ -35,6 +35,16 @@
         "EXPO_PUBLIC_GCP_MAPS_API_KEY": "${EXPO_PUBLIC_GCP_MAPS_API_KEY}"
       }
     },
+    "preview-no-updates": {
+      "extends": "preview",
+      "channel": "preview-no-updates",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "${EXPO_PUBLIC_SUPABASE_URL}",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "${EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY}",
+        "EXPO_PUBLIC_GCP_MAPS_API_KEY": "${EXPO_PUBLIC_GCP_MAPS_API_KEY}",
+        "EAS_NO_VCS": "1"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "ios": {

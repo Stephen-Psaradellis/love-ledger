@@ -18,7 +18,7 @@
  * ```
  */
 
-import { createClient } from '../supabase/client';
+import { supabase } from '../supabase';
 import type { AvatarConfig } from '../../components/avatar/types';
 
 // =============================================================================
@@ -202,8 +202,7 @@ export async function checkSnapshotExists(
   format: 'png' | 'jpeg' = 'png'
 ): Promise<SnapshotExistsResult> {
   try {
-    const supabase = createClient();
-    const path = getSnapshotPath(hash, format);
+        const path = getSnapshotPath(hash, format);
 
     // Try to get public URL - this will return a URL even if file doesn't exist
     // So we need to do a HEAD request or list to verify
@@ -249,8 +248,7 @@ export async function checkSnapshotExists(
  * @returns Public URL string
  */
 export function getSnapshotUrl(hash: string, format: 'png' | 'jpeg' = 'png'): string {
-  const supabase = createClient();
-  const path = getSnapshotPath(hash, format);
+    const path = getSnapshotPath(hash, format);
 
   const { data } = supabase.storage
     .from(AVATAR_SNAPSHOTS_BUCKET)
@@ -273,8 +271,7 @@ export async function uploadSnapshot(
   format: 'png' | 'jpeg' = 'png'
 ): Promise<UploadResult> {
   try {
-    const supabase = createClient();
-    const path = getSnapshotPath(hash, format);
+        const path = getSnapshotPath(hash, format);
 
     // Remove data URL prefix if present
     const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '');
@@ -354,8 +351,7 @@ export async function deleteSnapshot(
   format: 'png' | 'jpeg' = 'png'
 ): Promise<boolean> {
   try {
-    const supabase = createClient();
-    const path = getSnapshotPath(hash, format);
+        const path = getSnapshotPath(hash, format);
 
     const { error } = await supabase.storage
       .from(AVATAR_SNAPSHOTS_BUCKET)
